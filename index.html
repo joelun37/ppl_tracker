@@ -38,16 +38,20 @@
 
     <div class="container mx-auto max-w-4xl p-4 sm:p-6">
         <header class="text-center mb-6">
-            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Foundational PPL Plan</h1>
-            <p class="text-slate-500 mt-1">Your 8-Week Foundational Block - Week 1</p>
-        </header>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Foundational PPL Plan</h1>
+                    <p id="subtitle-display" class="text-slate-500 mt-1">Your 8-Week Foundational Block - Week 1</p>
+                </header>
 
-        <div class="flex justify-between items-center bg-white rounded-lg shadow-md p-3 mb-4">
-            <button id="prev-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">◄ Prev</button>
-            <h2 id="week-display" class="text-xl font-bold text-slate-700">Week 1</h2>
-            <button id="next-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next ►</button>
-        </div>
-        
+                <div class="flex justify-between items-center bg-white rounded-lg shadow-md p-3 mb-4">
+                    <button id="prev-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">◄ Prev</button>
+                    
+                    <h2 class="text-center">
+                        <span id="week-number-display" class="text-xl font-bold text-slate-700"></span>
+                        <span id="week-date-display" class="text-sm font-normal text-slate-500 ml-1"></span>
+                    </h2>
+
+                    <button id="next-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next ►</button>
+                </div>        
         <nav class="bg-white rounded-lg shadow-md p-2 mb-6">
             <div id="day-selector" class="grid grid-cols-3 sm:grid-cols-6 gap-2">
                 </div>
@@ -166,20 +170,23 @@ function renderWeek(weekNumber) {
                 }
             });
 
-            let weekTitle = `Week ${currentWeek}`;
-            // --- NEW LOGIC START ---
-            if (weekLogs.length > 0) {
-                // Take any date from the logs to determine the week's range
-                const anyDateFromWeek = new Date(weekLogs[0].Timestamp);
+            // --- NEW UI UPDATE LOGIC ---
+            // 1. Update the main page subtitle
+            document.getElementById('subtitle-display').textContent = `Your 8-Week Foundational Block - Week ${currentWeek}`;
 
-                // Calculate the Monday of that week
-                const dayOfWeek = anyDateFromWeek.getDay(); // (Sunday=0, Monday=1, ..., Saturday=6)
+            // 2. Update the week navigator's number part
+            document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
+
+            // 3. Update the week navigator's date part
+            const dateDisplay = document.getElementById('week-date-display');
+            if (weekLogs.length > 0) {
+                const anyDateFromWeek = new Date(weekLogs[0].Timestamp);
+                const dayOfWeek = anyDateFromWeek.getDay();
                 const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
                 
                 const weekStartDate = new Date(anyDateFromWeek);
                 weekStartDate.setDate(anyDateFromWeek.getDate() - daysToSubtract);
 
-                // Calculate the Sunday of that week by adding 6 days to Monday
                 const weekEndDate = new Date(weekStartDate);
                 weekEndDate.setDate(weekStartDate.getDate() + 6);
                 
@@ -187,17 +194,19 @@ function renderWeek(weekNumber) {
                 const formattedStart = weekStartDate.toLocaleDateString(undefined, options);
                 const formattedEnd = weekEndDate.toLocaleDateString(undefined, options);
 
-                weekTitle += ` (${formattedStart} - ${formattedEnd})`;
+                dateDisplay.textContent = `(${formattedStart} - ${formattedEnd})`;
+            } else {
+                dateDisplay.textContent = ''; // Hide dates if there are no logs for the week
             }
-            // --- NEW LOGIC END ---
 
-            document.getElementById('week-display').textContent = weekTitle;
+            // --- END OF NEW LOGIC ---
+
             document.getElementById('prev-week-btn').disabled = (currentWeek <= 1);
             document.getElementById('next-week-btn').disabled = (currentWeek >= totalWeeks);
             
             renderWorkout(currentDay);
         }
-        
+                
         function handleInteraction(e) {
             const target = e.target;
             const setRow = target.closest('.set-row');
