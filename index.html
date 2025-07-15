@@ -361,12 +361,34 @@ function renderWeek(weekNumber) {
             // We REMOVED the 'input' listener to prevent saving on every keystroke.
             workoutContainer.addEventListener('change', handleInteraction);
         }
-
+        
         async function init() {
             await loadData();
-            renderWeek(currentWeek); // Render the current (most recent) week
 
-            // Add event listeners for the new week buttons
+            // --- THIS IS THE LOGIC THAT SETS THE DAY ---
+            const today = new Date().getDay(); // Gets the current day (Sunday=0, Monday=1, etc.)
+            
+            // This array maps the day number to your workout keys.
+            const dayMap = [
+                'saturday',  // Sunday (index 0) will show Saturday's workout
+                'monday',    // Monday (index 1)
+                'tuesday',   // Tuesday (index 2)
+                'wednesday', // Wednesday (index 3)
+                'thursday',  // Thursday (index 4)
+                'friday',    // Friday (index 5)
+                'saturday'   // Saturday (index 6)
+            ];
+
+            const todayKey = dayMap[today];
+            // --- END OF LOGIC ---
+
+            // Set the initial day tab correctly before rendering
+            currentDay = todayKey;
+
+            // Render the page starting with the correct week and day
+            renderWeek(currentWeek);
+
+            // Add event listeners for the week buttons
             document.getElementById('prev-week-btn').addEventListener('click', () => {
                 if (currentWeek > 1) {
                     renderWeek(currentWeek - 1);
