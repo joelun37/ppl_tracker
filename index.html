@@ -334,15 +334,20 @@ function renderWeek(weekNumber) {
             workoutContainer.innerHTML = '';
             
             dayDataToRender.exercises.forEach((exercise, exerciseIndex) => {
-                // --- NEW LOGIC TO HANDLE DIFFERENT CARD TYPES ---
+
                 if (exercise.type === 'giantSet') {
                     // --- RENDER THE CUSTOM AB ROUTINE CARD ---
                     let setsHtml = '';
                     for (let i = 0; i < exercise.sets; i++) {
                         const log = exercise.logs[i];
+                        // --- THIS LAYOUT IS MODIFIED ---
                         setsHtml += `
                             <div class="set-row grid grid-cols-5 gap-x-4 items-center p-2 border-b border-slate-200 ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}">
-                                <div class="text-center font-medium text-slate-500">Round ${i + 1}</div>
+                                <div class="flex flex-col items-center justify-center">
+                                    <span class="font-medium text-slate-500">Round ${i + 1}</span>
+                                    <input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-2" ${log.done ? 'checked' : ''} data-type="done">
+                                </div>
+                                
                                 <div class="text-center">
                                     <label class="text-xs text-slate-500">Leg Raises</label>
                                     <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.hangingLegRaises}" placeholder="reps" data-type="reps" data-ab-exercise="hangingLegRaises">
@@ -358,9 +363,6 @@ function renderWeek(weekNumber) {
                                 <div class="text-center">
                                     <label class="text-xs text-slate-500">Crunches</label>
                                     <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.crunches}" placeholder="reps" data-type="reps" data-ab-exercise="crunches">
-                                </div>
-                                <div class="text-center col-start-5">
-                                     <input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-5" ${log.done ? 'checked' : ''} data-type="done">
                                 </div>
                             </div>
                         `;
@@ -378,7 +380,7 @@ function renderWeek(weekNumber) {
                     workoutContainer.innerHTML += exerciseCard;
 
                 } else {
-                    // --- RENDER A REGULAR EXERCISE CARD (Original Logic) ---
+                    // --- RENDER A REGULAR EXERCISE CARD (This part is unchanged) ---
                     let setsHtml = '';
                     for (let i = 0; i < exercise.sets; i++) {
                         const log = exercise.logs[i] || { weight: '', reps: '', done: false };
