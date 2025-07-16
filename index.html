@@ -127,6 +127,8 @@
             return null; // Return null if no range is found
         }
         
+  
+        
         function createInitialState() {
             const state = JSON.parse(JSON.stringify(workoutData)); // Make a deep copy to start
             for (const dayKey in state) {
@@ -147,7 +149,18 @@
         let allLogs = [];
         let currentWeek = 1;
         let totalWeeks = 1;
-
+        let latestLogMap = new Map();
+        
+        function precomputeLatestLogs() {
+            latestLogMap.clear();
+            for (const log of allLogs) {
+                // Only consider completed sets for progression
+                if (log.Done) {
+                    latestLogMap.set(log.Exercise, log);
+                }
+            }
+        }      
+        
         async function saveSetData(week, day, exerciseName, setIndex, log) { // Added 'week'
             try {
                 const dataToSave = {
@@ -178,39 +191,29 @@ function renderWeek(weekNumber) {
             currentWeek = weekNumber;
             const weeklyAppState = createInitialState();
             
-            // --- NEW PROGRESSIVE OVERLOAD LOGIC ---
-            // This logic now looks for the most recent workout, not just last week's.
+            // --- OPTIMIZED PROGRESSIVE OVERLOAD LOGIC ---
             Object.values(weeklyAppState).forEach(dayData => {
                 if (!dayData.exercises) return;
-
                 dayData.exercises.forEach(exercise => {
-                    // Find the MOST RECENT completed log for this exercise by searching backwards
-                    let lastWorkoutSet = null;
-                    for (let i = allLogs.length - 1; i >= 0; i--) {
-                        if (allLogs[i].Exercise === exercise.name && allLogs[i].Done) {
-                            lastWorkoutSet = allLogs[i];
-                            break; // Found the most recent, so stop searching
-                        }
-                    }
+                    // This is now a super-fast lookup instead of a slow loop
+                    const lastWorkoutSet = latestLogMap.get(exercise.name);
 
                     if (lastWorkoutSet) {
                         const repRange = parseRepRange(exercise.effort);
                         let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
 
-                        // Apply the Double Progression rule
                         if (repRange && lastWorkoutSet.Reps >= repRange.max) {
                             const increment = exercise.effort.toLowerCase().includes('heavy') ? 2.5 : 1.0;
                             suggestedWeight += increment;
                         }
                         
-                        // Pre-fill the suggested weight into the log templates
                         exercise.logs.forEach(log => {
                             log.weight = suggestedWeight;
                         });
                     }
                 });
             });
-            // --- END OF NEW LOGIC ---
+            // --- END OF OPTIMIZED LOGIC ---
 
             appState = weeklyAppState;
             
@@ -272,6 +275,15 @@ function renderWeek(weekNumber) {
             // --- THE FIX ---
             // Only send data to the sheet if the checkbox was clicked.
             if (target.dataset.type === "done") {
+                if(log.done) {
+                    latestLogMap.set(exercise.name, {
+                        Exercise: exercise.name,
+                        Weight: log.weight,
+                        Reps: log.reps,
+                        Done: log.done
+                        // Other properties aren't needed for the cache
+                    });
+                }
                 saveSetData(currentWeek, dayKey, exercise.name, setIndex, log);
             }
         }
@@ -284,6 +296,8 @@ function renderWeek(weekNumber) {
                 const callbackName = 'jsonpCallback_' + Date.now();
                 window[callbackName] = function(logs) {
                     allLogs = logs;
+                    precomputeLatestLogs();
+                    
                     if (allLogs.length > 0) {
                         totalWeeks = Math.max(...allLogs.map(log => log.Week || 1));
                     } else {
