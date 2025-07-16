@@ -306,7 +306,9 @@ function renderWeek(weekNumber) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'jsonpCallback_' + Date.now();
                 window[callbackName] = function(logs) {
-                    allLogs = logs;
+                    const now = new Date();
+                    allLogs = logs.filter(log => new Date(log.Timestamp) <= now);
+                    
                     precomputeLatestLogs();
                     
                     if (allLogs.length > 0) {
