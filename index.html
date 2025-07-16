@@ -168,54 +168,75 @@
 
 function renderWeek(weekNumber) {
             currentWeek = weekNumber;
-            appState = JSON.parse(JSON.stringify(workoutData));
-            const weekLogs = allLogs.filter(log => log.Week == currentWeek);
+            const weeklyAppState = createInitialState();
+            
+            // --- NEW PROGRESSIVE OVERLOAD LOGIC ---
+            // This logic now looks for the most recent workout, not just last week's.
+            Object.values(weeklyAppState).forEach(dayData => {
+                if (!dayData.exercises) return;
 
-            weekLogs.forEach(log => {
+                dayData.exercises.forEach(exercise => {
+                    // Find the MOST RECENT completed log for this exercise by searching backwards
+                    let lastWorkoutSet = null;
+                    for (let i = allLogs.length - 1; i >= 0; i--) {
+                        if (allLogs[i].Exercise === exercise.name && allLogs[i].Done) {
+                            lastWorkoutSet = allLogs[i];
+                            break; // Found the most recent, so stop searching
+                        }
+                    }
+
+                    if (lastWorkoutSet) {
+                        const repRange = parseRepRange(exercise.effort);
+                        let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
+
+                        // Apply the Double Progression rule
+                        if (repRange && lastWorkoutSet.Reps >= repRange.max) {
+                            const increment = exercise.effort.toLowerCase().includes('heavy') ? 2.5 : 1.0;
+                            suggestedWeight += increment;
+                        }
+                        
+                        // Pre-fill the suggested weight into the log templates
+                        exercise.logs.forEach(log => {
+                            log.weight = suggestedWeight;
+                        });
+                    }
+                });
+            });
+            // --- END OF NEW LOGIC ---
+
+            appState = weeklyAppState;
+            
+            // Repopulate with any data already saved for the current week
+            const currentWeekLogs = allLogs.filter(log => log.Week == currentWeek);
+            currentWeekLogs.forEach(log => {
                 const dayInfo = appState[log.Day];
                 if (dayInfo && dayInfo.exercises) {
                     const exercise = dayInfo.exercises.find(ex => ex.name === log.Exercise);
                     if (exercise && exercise.logs[log.SetIndex] !== undefined) {
-                        exercise.logs[log.SetIndex] = {
-                            weight: log.Weight,
-                            reps: log.Reps,
-                            done: log.Done
-                        };
+                        exercise.logs[log.SetIndex] = { weight: log.Weight, reps: log.Reps, done: log.Done };
                     }
                 }
             });
 
-            // --- NEW UI UPDATE LOGIC ---
-            // 1. Update the main page subtitle
-            document.getElementById('subtitle-display').textContent = `Your 8-Week Foundational Block - Week ${currentWeek}`;
-
-            // 2. Update the week navigator's number part
-            document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
-
-            // 3. Update the week navigator's date part
-            const dateDisplay = document.getElementById('week-date-display');
-            if (weekLogs.length > 0) {
-                const anyDateFromWeek = new Date(weekLogs[0].Timestamp);
+            // Update UI (this part remains the same)
+            let weekTitle = `Week ${currentWeek}`;
+            if (currentWeekLogs.length > 0) {
+                const anyDateFromWeek = new Date(currentWeekLogs[0].Timestamp);
                 const dayOfWeek = anyDateFromWeek.getDay();
                 const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-                
                 const weekStartDate = new Date(anyDateFromWeek);
                 weekStartDate.setDate(anyDateFromWeek.getDate() - daysToSubtract);
-
                 const weekEndDate = new Date(weekStartDate);
                 weekEndDate.setDate(weekStartDate.getDate() + 6);
-                
                 const options = { month: 'short', day: 'numeric' };
                 const formattedStart = weekStartDate.toLocaleDateString(undefined, options);
                 const formattedEnd = weekEndDate.toLocaleDateString(undefined, options);
-
-                dateDisplay.textContent = `(${formattedStart} - ${formattedEnd})`;
-            } else {
-                dateDisplay.textContent = ''; // Hide dates if there are no logs for the week
+                weekTitle += ` (${formattedStart} - ${formattedEnd})`;
             }
-
-            // --- END OF NEW LOGIC ---
-
+            
+            document.getElementById('subtitle-display').textContent = `Your 8-Week Foundational Block - Week ${currentWeek}`;
+            document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
+            document.getElementById('week-date-display').textContent = weekTitle.replace(`Week ${currentWeek} `, '');
             document.getElementById('prev-week-btn').disabled = (currentWeek <= 1);
             document.getElementById('next-week-btn').disabled = (currentWeek >= totalWeeks);
             
