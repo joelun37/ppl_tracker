@@ -119,6 +119,14 @@
             { name: "Plank", reps: "Hold for 45-60 seconds"}
         ];
         
+        function parseRepRange(effortString) {
+            const match = effortString.match(/\((\d+)-(\d+)/);
+            if (match && match[1] && match[2]) {
+                return { min: parseInt(match[1]), max: parseInt(match[2]) };
+            }
+            return null; // Return null if no range is found
+        }
+        
         function createInitialState() {
             const state = JSON.parse(JSON.stringify(workoutData)); // Make a deep copy to start
             for (const dayKey in state) {
