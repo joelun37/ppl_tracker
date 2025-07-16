@@ -127,7 +127,16 @@
             return null; // Return null if no range is found
         }
         
-  
+        function getIncrement(exerciseName) {
+            const lowerCaseName = exerciseName.toLowerCase();
+            if (lowerCaseName.includes('barbell') || lowerCaseName.includes('squat') || lowerCaseName.includes('deadlift')) {
+                return 2.5; // For heavy barbell compound lifts
+            } else if (lowerCaseName.includes('dumbbell')) {
+                return 2.0; // For dumbbell exercises (1kg per dumbbell)
+            } else {
+                return 5.0; // A smaller default for machines, cables, etc.
+            }
+        }
         
         function createInitialState() {
             const state = JSON.parse(JSON.stringify(workoutData)); // Make a deep copy to start
@@ -203,7 +212,7 @@ function renderWeek(weekNumber) {
                         let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
 
                         if (repRange && lastWorkoutSet.Reps >= repRange.max) {
-                            const increment = exercise.effort.toLowerCase().includes('heavy') ? 2.5 : 1.0;
+                            const increment = getIncrement(exercise.name);
                             suggestedWeight += increment;
                         }
                         
