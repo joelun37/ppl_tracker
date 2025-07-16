@@ -103,10 +103,15 @@
                                         { 
                                             name: "Ab Routine (Giant Set)", 
                                             type: "giantSet", 
+                                            repCaps: {
+                                                hangingLegRaises: 15,
+                                                hipUps: 20,
+                                                bicycles: 25,
+                                                crunches: 30
+                                            },
                                             sets: 3, 
                                             effort: "Hanging Leg Raises -> Hip-ups -> Bicycles -> Crunches",
                                             rest: "60 seconds between rounds", 
-                                            // This log structure is new
                                             logs: Array.from({ length: 3 }, () => ({
                                                 done: false,
                                                 reps: { hangingLegRaises: '', hipUps: '', bicycles: '', crunches: '' }
@@ -206,45 +211,78 @@ function renderWeek(weekNumber) {
             currentWeek = weekNumber;
             const weeklyAppState = createInitialState();
             
-            // --- OPTIMIZED PROGRESSIVE OVERLOAD LOGIC ---
+            // --- THIS PROGRESSIVE OVERLOAD SECTION IS NOW UPDATED ---
             Object.values(weeklyAppState).forEach(dayData => {
                 if (!dayData.exercises) return;
+
                 dayData.exercises.forEach(exercise => {
-                    // This is now a super-fast lookup instead of a slow loop
                     const lastWorkoutSet = latestLogMap.get(exercise.name);
 
                     if (lastWorkoutSet) {
-                        const repRange = parseRepRange(exercise.effort);
-                        let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
+                        // NEW: Check if the exercise is the special ab routine
+                        if (exercise.type === 'giantSet') {
+                            // Logic for Ab Rep Progression
+                            const caps = exercise.repCaps; // Get the caps from the workoutData object
+                            const suggestedReps = {
+                                hangingLegRaises: Math.min((parseInt(lastWorkoutSet.HangingLegRaisesReps) || 0) + 1, caps.hangingLegRaises),
+                                hipUps:         Math.min((parseInt(lastWorkoutSet.HipUpsReps) || 0) + 1, caps.hipUps),
+                                bicycles:       Math.min((parseInt(lastWorkoutSet.BicyclesReps) || 0) + 1, caps.bicycles),
+                                crunches:       Math.min((parseInt(lastWorkoutSet.CrunchesReps) || 0) + 1, caps.crunches),
+                            };
+                            
+                            exercise.logs.forEach(log => {
+                                log.reps = { ...suggestedReps }; // spread to create a copy
+                            });
 
-                        if (repRange && lastWorkoutSet.Reps >= repRange.max) {
-                            const increment = getIncrement(exercise.name);
-                            suggestedWeight += increment;
+                        } else {
+                            // Original logic for regular, weight-based exercises
+                            const repRange = parseRepRange(exercise.effort);
+                            let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
+
+                            if (repRange && lastWorkoutSet.Reps >= repRange.max) {
+                                const increment = getIncrement(exercise.name);
+                                suggestedWeight += increment;
+                            }
+                            
+                            exercise.logs.forEach(log => {
+                                log.weight = suggestedWeight;
+                            });
                         }
-                        
-                        exercise.logs.forEach(log => {
-                            log.weight = suggestedWeight;
-                        });
                     }
                 });
             });
-            // --- END OF OPTIMIZED LOGIC ---
 
             appState = weeklyAppState;
             
-            // Repopulate with any data already saved for the current week
+            // This part for repopulating current week data is unchanged
             const currentWeekLogs = allLogs.filter(log => log.Week == currentWeek);
             currentWeekLogs.forEach(log => {
                 const dayInfo = appState[log.Day];
                 if (dayInfo && dayInfo.exercises) {
                     const exercise = dayInfo.exercises.find(ex => ex.name === log.Exercise);
                     if (exercise && exercise.logs[log.SetIndex] !== undefined) {
-                        exercise.logs[log.SetIndex] = { weight: log.Weight, reps: log.Reps, done: log.Done };
+                        if (exercise.type === 'giantSet') {
+                            exercise.logs[log.SetIndex] = {
+                                done: log.Done,
+                                reps: {
+                                    hangingLegRaises: log.HangingLegRaisesReps,
+                                    hipUps: log.HipUpsReps,
+                                    bicycles: log.BicyclesReps,
+                                    crunches: log.CrunchesReps
+                                }
+                            };
+                        } else {
+                            exercise.logs[log.SetIndex] = {
+                                weight: log.Weight,
+                                reps: log.Reps,
+                                done: log.Done
+                            };
+                        }
                     }
                 }
             });
 
-            // Update UI (this part remains the same)
+            // This part for updating the UI display is unchanged
             let weekTitle = `Week ${currentWeek}`;
             if (currentWeekLogs.length > 0) {
                 const anyDateFromWeek = new Date(currentWeekLogs[0].Timestamp);
@@ -268,7 +306,7 @@ function renderWeek(weekNumber) {
             
             renderWorkout(currentDay);
         }
-                
+
         function handleInteraction(e) {
                     const target = e.target;
                     const setRow = target.closest('.set-row');
@@ -308,7 +346,7 @@ function renderWeek(weekNumber) {
                 window[callbackName] = function(logs) {
                     const now = new Date();
                     allLogs = logs.filter(log => new Date(log.Timestamp) <= now);
-                    
+
                     precomputeLatestLogs();
                     
                     if (allLogs.length > 0) {
