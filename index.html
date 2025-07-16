@@ -102,10 +102,15 @@
                                     exercises: [
                                         { 
                                             name: "Ab Routine (Giant Set)", 
+                                            type: "giantSet", 
                                             sets: 3, 
                                             effort: "Hanging Leg Raises -> Hip-ups -> Bicycles -> Crunches",
                                             rest: "60 seconds between rounds", 
-                                            logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) 
+                                            // This log structure is new
+                                            logs: Array.from({ length: 3 }, () => ({
+                                                done: false,
+                                                reps: { hangingLegRaises: '', hipUps: '', bicycles: '', crunches: '' }
+                                            }))
                                         },
                                         { name: "Barbell Back Squats", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
                                         { name: "Romanian Deadlifts", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
@@ -174,14 +179,13 @@
         
         async function saveSetData(week, day, exerciseName, setIndex, log) { // Added 'week'
             try {
+                // Modify this part to send the whole log object
                 const dataToSave = {
-                    week: week, // Add week to the data payload
+                    week: week,
                     day: day,
                     exercise: exerciseName,
                     setIndex: setIndex,
-                    weight: log.weight,
-                    reps: log.reps,
-                    done: log.done
+                    log: log
                 };
 
                 const response = await fetch(SCRIPT_URL, {
@@ -266,38 +270,34 @@ function renderWeek(weekNumber) {
         }
                 
         function handleInteraction(e) {
-            const target = e.target;
-            const setRow = target.closest('.set-row');
-            if (!setRow) return;
-
-            const { exerciseIndex, setIndex } = setRow.dataset;
-            const dayKey = currentDay;
-            const exercise = appState[dayKey].exercises[exerciseIndex];
-            const log = exercise.logs[setIndex];
-
-            // This part updates the values on the webpage instantly
-            if (target.dataset.type === "weight" || target.dataset.type === "reps") {
-                log[target.dataset.type] = target.value;
-            } else if (target.dataset.type === "done") {
-                log.done = target.checked;
-                setRow.classList.toggle('completed', log.done);
-            }
-
-            // --- THE FIX ---
-            // Only send data to the sheet if the checkbox was clicked.
-            if (target.dataset.type === "done") {
-                if(log.done) {
-                    latestLogMap.set(exercise.name, {
-                        Exercise: exercise.name,
-                        Weight: log.weight,
-                        Reps: log.reps,
-                        Done: log.done
-                        // Other properties aren't needed for the cache
-                    });
+                    const target = e.target;
+                    const setRow = target.closest('.set-row');
+                    if (!setRow) return;
+        
+                    const { exerciseIndex, setIndex } = setRow.dataset;
+                    const dayKey = currentDay;
+                    const exercise = appState[dayKey].exercises[exerciseIndex];
+                    const log = exercise.logs[setIndex];
+        
+                    // Update state based on input type
+                    const dataType = target.dataset.type;
+                    if (dataType === "done") {
+                        log.done = target.checked;
+                        setRow.classList.toggle('completed', log.done);
+                    } else if (exercise.type === 'giantSet' && dataType === 'reps') {
+                        // Handle reps for the custom ab routine card
+                        const abExercise = target.dataset.abExercise;
+                        log.reps[abExercise] = target.value;
+                    } else {
+                        // Handle reps and weight for regular exercises
+                        log[dataType] = target.value;
+                    }
+        
+                    // Save data when a round is marked as complete
+                    if (dataType === "done") {
+                        saveSetData(currentWeek, dayKey, exercise.name, setIndex, log);
+                    }
                 }
-                saveSetData(currentWeek, dayKey, exercise.name, setIndex, log);
-            }
-        }
         
         function loadData() {
             // Use the new helper function to create a clean state
@@ -334,53 +334,94 @@ function renderWeek(weekNumber) {
             workoutContainer.innerHTML = '';
             
             dayDataToRender.exercises.forEach((exercise, exerciseIndex) => {
-                const exerciseLogs = exercise.logs;
-                
-                let setsHtml = '';
-                for (let i = 0; i < exercise.sets; i++) {
-                    const log = exerciseLogs[i] || { weight: '', reps: '', done: false };
-                    setsHtml += `
-                        <tr class="set-row ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}">
-                            <td class="p-2 text-center font-medium text-slate-500">${i + 1}</td>
-                            <td class="p-2 text-center text-slate-600">${exercise.effort}</td>
-                            <td class="p-2">
-                                <input type="number" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center" value="${log.weight}" placeholder="kg" data-type="weight">
-                            </td>
-                            <td class="p-2">
-                                <input type="number" class="w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-center" value="${log.reps}" placeholder="reps" data-type="reps">
-                            </td>
-                             <td class="p-2 text-center">
-                                <input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500" ${log.done ? 'checked' : ''} data-type="done">
-                            </td>
-                        </tr>
-                    `;
-                }
+                // --- NEW LOGIC TO HANDLE DIFFERENT CARD TYPES ---
+                if (exercise.type === 'giantSet') {
+                    // --- RENDER THE CUSTOM AB ROUTINE CARD ---
+                    let setsHtml = '';
+                    for (let i = 0; i < exercise.sets; i++) {
+                        const log = exercise.logs[i];
+                        setsHtml += `
+                            <div class="set-row grid grid-cols-5 gap-x-4 items-center p-2 border-b border-slate-200 ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}">
+                                <div class="text-center font-medium text-slate-500">Round ${i + 1}</div>
+                                <div class="text-center">
+                                    <label class="text-xs text-slate-500">Leg Raises</label>
+                                    <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.hangingLegRaises}" placeholder="reps" data-type="reps" data-ab-exercise="hangingLegRaises">
+                                </div>
+                                <div class="text-center">
+                                    <label class="text-xs text-slate-500">Hip-ups</label>
+                                    <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.hipUps}" placeholder="reps" data-type="reps" data-ab-exercise="hipUps">
+                                </div>
+                                <div class="text-center">
+                                    <label class="text-xs text-slate-500">Bicycles</label>
+                                    <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.bicycles}" placeholder="reps" data-type="reps" data-ab-exercise="bicycles">
+                                </div>
+                                <div class="text-center">
+                                    <label class="text-xs text-slate-500">Crunches</label>
+                                    <input type="number" class="w-full rounded-md text-center border-slate-300 shadow-sm" value="${log.reps.crunches}" placeholder="reps" data-type="reps" data-ab-exercise="crunches">
+                                </div>
+                                <div class="text-center col-start-5">
+                                     <input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-5" ${log.done ? 'checked' : ''} data-type="done">
+                                </div>
+                            </div>
+                        `;
+                    }
 
-                const exerciseCard = `
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                        <div class="bg-slate-50 p-4 border-b border-slate-200">
-                            <h3 class="text-xl font-bold text-slate-800">${exercise.name}</h3>
-                            <p class="text-sm text-slate-500">Rest: ${exercise.rest}</p>
+                    const exerciseCard = `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="bg-slate-50 p-4 border-b border-slate-200">
+                                <h3 class="text-xl font-bold text-slate-800">${exercise.name}</h3>
+                                <p class="text-sm text-slate-500">Rest: ${exercise.rest}</p>
+                            </div>
+                            <div>${setsHtml}</div>
                         </div>
-                        <div class="p-2">
-                            <table class="w-full">
-                                <thead>
-                                    <tr class="border-b border-slate-200">
-                                        <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">Set</th>
-                                        <th class="p-2 font-semibold text-slate-600 text-sm w-4/12">Target</th>
-                                        <th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Weight</th>
-                                        <th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Reps</th>
-                                        <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">✓</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${setsHtml}
-                                </tbody>
-                            </table>
+                    `;
+                    workoutContainer.innerHTML += exerciseCard;
+
+                } else {
+                    // --- RENDER A REGULAR EXERCISE CARD (Original Logic) ---
+                    let setsHtml = '';
+                    for (let i = 0; i < exercise.sets; i++) {
+                        const log = exercise.logs[i] || { weight: '', reps: '', done: false };
+                        setsHtml += `
+                            <tr class="set-row ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}">
+                                <td class="p-2 text-center font-medium text-slate-500">${i + 1}</td>
+                                <td class="p-2 text-center text-slate-600">${exercise.effort}</td>
+                                <td class="p-2">
+                                    <input type="number" class="w-full rounded-md border-slate-300 shadow-sm" value="${log.weight}" placeholder="kg" data-type="weight">
+                                </td>
+                                <td class="p-2">
+                                    <input type="number" class="w-full rounded-md border-slate-300 shadow-sm" value="${log.reps}" placeholder="reps" data-type="reps">
+                                </td>
+                                <td class="p-2 text-center">
+                                    <input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" ${log.done ? 'checked' : ''} data-type="done">
+                                </td>
+                            </tr>
+                        `;
+                    }
+                    const exerciseCard = `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                             <div class="bg-slate-50 p-4 border-b border-slate-200">
+                                <h3 class="text-xl font-bold text-slate-800">${exercise.name}</h3>
+                                <p class="text-sm text-slate-500">Rest: ${exercise.rest}</p>
+                            </div>
+                            <div class="p-2">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="border-b border-slate-200">
+                                            <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">Set</th>
+                                            <th class="p-2 font-semibold text-slate-600 text-sm w-4/12">Target</th>
+                                            <th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Weight</th>
+                                            <th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Reps</th>
+                                            <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">✓</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>${setsHtml}</tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                `;
-                workoutContainer.innerHTML += exerciseCard;
+                    `;
+                    workoutContainer.innerHTML += exerciseCard;
+                }
             });
 
             if (dayDataToRender.extra) {
