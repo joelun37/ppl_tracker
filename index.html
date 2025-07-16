@@ -98,26 +98,28 @@
                         extra: null
                     },
                     wednesday: {
-                        name: "Legs & Abs Day",
-                        exercises: [
-                            { name: "Barbell Back Squats", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                            { name: "Romanian Deadlifts", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                            { name: "Leg Press or Lunges", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                            { name: "Leg Curls", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                            { name: "Calf Raises", sets: 5, effort: "Light-to-Moderate (10-20 reps)", rest: "60 seconds", logs: Array.from({ length: 5 }, () => ({ weight: '', reps: '', done: false })) },
-                        ],
-                        extra: { type: "Abs", details: "3 rounds of the Ab Routine" }
-                    },
+                                    name: "Legs & Abs Day",
+                                    exercises: [
+                                        { 
+                                            name: "Ab Routine (Giant Set)", 
+                                            sets: 3, 
+                                            effort: "Hanging Leg Raises -> Hip-ups -> Bicycles -> Crunches",
+                                            rest: "60 seconds between rounds", 
+                                            logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) 
+                                        },
+                                        { name: "Barbell Back Squats", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
+                                        { name: "Romanian Deadlifts", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
+                                        { name: "Leg Press or Lunges", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
+                                        { name: "Leg Curls", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
+                                        { name: "Calf Raises", sets: 5, effort: "Light-to-Moderate (10-20 reps)", rest: "60 seconds", logs: Array.from({ length: 5 }, () => ({ weight: '', reps: '', done: false })) },
+                                    ],
+                                    extra: null // The old post-workout abs are now removed.
+                                },
                     thursday: { name: "Push Day", copy: 'monday' },
                     friday: { name: "Pull Day", copy: 'tuesday' },
                     saturday: { name: "Legs & Abs Day", copy: 'wednesday' },
                 };
 
-        const abRoutine = [
-            { name: "Hanging Knee Raises (or Lying Leg Raises)", reps: "10-15 reps"},
-            { name: "Cable Crunches (or Machine Crunches)", reps: "12-20 reps"},
-            { name: "Plank", reps: "Hold for 45-60 seconds"}
-        ];
         
         function parseRepRange(effortString) {
             const match = effortString.match(/\((\d+)-(\d+)/);
