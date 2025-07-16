@@ -118,7 +118,22 @@
             { name: "Cable Crunches (or Machine Crunches)", reps: "12-20 reps"},
             { name: "Plank", reps: "Hold for 45-60 seconds"}
         ];
-
+        
+        function createInitialState() {
+            const state = JSON.parse(JSON.stringify(workoutData)); // Make a deep copy to start
+            for (const dayKey in state) {
+                const day = state[dayKey];
+                if (day.copy) {
+                    const sourceDay = state[day.copy];
+                    // Create fresh copies of exercises and extra info
+                    day.exercises = JSON.parse(JSON.stringify(sourceDay.exercises));
+                    day.extra = JSON.parse(JSON.stringify(sourceDay.extra));
+                    delete day.copy; // Remove the copy property
+                }
+            }
+            return state;
+        }
+        
         let appState = {};
         let currentDay = 'monday';
         let allLogs = [];
@@ -213,7 +228,7 @@ function renderWeek(weekNumber) {
             if (!setRow) return;
 
             const { exerciseIndex, setIndex } = setRow.dataset;
-            const dayKey = appState[currentDay].copy ? appState[currentDay].copy : currentDay;
+            const dayKey = currentDay;
             const exercise = appState[dayKey].exercises[exerciseIndex];
             const log = exercise.logs[setIndex];
 
@@ -232,20 +247,20 @@ function renderWeek(weekNumber) {
             }
         }
         
-        // MODIFIED: loadData now calculates total weeks
         function loadData() {
+            // Use the new helper function to create a clean state
+            appState = createInitialState();
+  
             return new Promise((resolve, reject) => {
                 const callbackName = 'jsonpCallback_' + Date.now();
                 window[callbackName] = function(logs) {
-                    allLogs = logs; // Store all logs globally
-                    
-                    // Calculate the total number of weeks from the data
+                    allLogs = logs;
                     if (allLogs.length > 0) {
-                        totalWeeks = Math.max(...allLogs.map(log => log.Week));
+                        totalWeeks = Math.max(...allLogs.map(log => log.Week || 1));
                     } else {
                         totalWeeks = 1;
                     }
-                    currentWeek = totalWeeks; // Start on the most recent week
+                    currentWeek = totalWeeks;
 
                     document.body.removeChild(script);
                     delete window[callbackName];
@@ -260,7 +275,7 @@ function renderWeek(weekNumber) {
         
         function renderWorkout(day) {
             currentDay = day;
-            const dayDataToRender = appState[day].copy ? appState[appState[day].copy] : appState[day];
+            const dayDataToRender = appState[day];
             const workoutContainer = document.getElementById('workout-container');
             workoutContainer.innerHTML = '';
             
