@@ -206,46 +206,48 @@
                 console.error("Failed to save set:", error);
             }
         }
-
-function renderWeek(weekNumber) {
+        
+        function renderWeek(weekNumber) {
             currentWeek = weekNumber;
             const weeklyAppState = createInitialState();
             
-            // --- THIS PROGRESSIVE OVERLOAD SECTION IS NOW UPDATED ---
             Object.values(weeklyAppState).forEach(dayData => {
                 if (!dayData.exercises) return;
-
                 dayData.exercises.forEach(exercise => {
                     const lastWorkoutSet = latestLogMap.get(exercise.name);
 
                     if (lastWorkoutSet) {
-                        // NEW: Check if the exercise is the special ab routine
                         if (exercise.type === 'giantSet') {
-                            // Logic for Ab Rep Progression
-                            const caps = exercise.repCaps; // Get the caps from the workoutData object
+                            const caps = exercise.repCaps;
                             const suggestedReps = {
                                 hangingLegRaises: Math.min((parseInt(lastWorkoutSet.HangingLegRaisesReps) || 0) + 1, caps.hangingLegRaises),
                                 hipUps:         Math.min((parseInt(lastWorkoutSet.HipUpsReps) || 0) + 1, caps.hipUps),
                                 bicycles:       Math.min((parseInt(lastWorkoutSet.BicyclesReps) || 0) + 1, caps.bicycles),
                                 crunches:       Math.min((parseInt(lastWorkoutSet.CrunchesReps) || 0) + 1, caps.crunches),
                             };
-                            
                             exercise.logs.forEach(log => {
-                                log.reps = { ...suggestedReps }; // spread to create a copy
+                                log.reps = { ...suggestedReps };
                             });
-
                         } else {
-                            // Original logic for regular, weight-based exercises
+                            // --- THIS IS THE MODIFIED LOGIC FOR REGULAR EXERCISES ---
                             const repRange = parseRepRange(exercise.effort);
                             let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
+                            let suggestedReps = ''; // Default to no suggestion
 
                             if (repRange && lastWorkoutSet.Reps >= repRange.max) {
+                                // Case 1: Weight is increasing. Suggest the MINIMUM reps for the new weight.
                                 const increment = getIncrement(exercise.name);
                                 suggestedWeight += increment;
+                                suggestedReps = repRange.min; 
+                            } else {
+                                // Case 2: Weight is the same. Suggest +1 rep from last time.
+                                suggestedReps = (parseInt(lastWorkoutSet.Reps) || 0) + 1;
                             }
                             
+                            // Pre-fill both suggested weight and reps
                             exercise.logs.forEach(log => {
                                 log.weight = suggestedWeight;
+                                log.reps = suggestedReps;
                             });
                         }
                     }
