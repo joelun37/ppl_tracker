@@ -304,7 +304,7 @@
             document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
             document.getElementById('week-date-display').textContent = weekTitle.replace(`Week ${currentWeek} `, '');
             document.getElementById('prev-week-btn').disabled = (currentWeek <= 1);
-            document.getElementById('next-week-btn').disabled = (currentWeek >= totalWeeks);
+            document.getElementById('next-week-btn').disabled = (currentWeek >= totalWeeks + 1);
             
             renderWorkout(currentDay);
         }
@@ -549,7 +549,8 @@
                 }
             });
             document.getElementById('next-week-btn').addEventListener('click', () => {
-                if (currentWeek < totalWeeks) {
+                // Allow navigation to one week beyond the last logged week
+                if (currentWeek < totalWeeks + 1) {
                     renderWeek(currentWeek + 1);
                 }
             });
