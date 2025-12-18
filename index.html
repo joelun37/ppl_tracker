@@ -251,46 +251,96 @@
         document.getElementById('prev-week-btn').classList.toggle('opacity-50', currentWeek <= 1);
     }
 
-    function renderTabs() {
+function renderTabs() {
         const container = document.getElementById('day-selector');
         container.innerHTML = '';
+        
         Object.keys(workoutData).forEach(day => {
             const isTravel = dayModes[day] === 'travel';
             const isActive = day === currentDay;
             const label = day.substring(0,3).toUpperCase();
             
             const btn = document.createElement('button');
-            btn.className = `p-2 rounded-md font-bold text-sm transition-all border ${
+            // Prevent the default iOS long-press menu
+            btn.style.userSelect = 'none'; 
+            btn.style.webkitUserSelect = 'none';
+            
+            btn.className = `day-tab-btn relative p-2 rounded-md font-bold text-sm transition-all border select-none ${
                 isActive ? 'bg-blue-500 text-white border-blue-600' : 
                 isTravel ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`;
             
             btn.innerHTML = `
-                <div>${label}</div>
-                <div class="text-[10px] font-normal opacity-80">${isTravel ? '✈️' : workoutData[day].name.split(' ')[0]}</div>
+                <div class="pointer-events-none">${label}</div>
+                <div class="pointer-events-none text-[10px] font-normal opacity-80">${isTravel ? '✈️' : workoutData[day].name.split(' ')[0]}</div>
+                ${isTravel ? '<div class="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] px-1 rounded-full">TRAVEL</div>' : ''}
             `;
             
-            // Left click: Select Day
-            btn.onclick = () => { currentDay = day; renderWorkout(); };
-            
-            // Long Press / Right Click (Desktop): Toggle Travel
-            btn.oncontextmenu = (e) => {
+            // --- LOGIC FOR LONG PRESS (IPHONE FIX) ---
+            let pressTimer;
+            let isLongPress = false;
+
+            // 1. Touch Start: Begin the countdown
+            btn.addEventListener('touchstart', (e) => {
+                isLongPress = false;
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    // Trigger the toggle
+                    dayModes[day] = isTravel ? 'ppl' : 'travel';
+                    saveLocal();
+                    renderTabs();
+                    if(day === currentDay) renderWorkout();
+                    
+                    // Haptic feedback if available
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }, 600); // 600ms hold time
+            }, {passive: true});
+
+            // 2. Touch End: Clear timer. If it wasn't a long press, do a normal click.
+            btn.addEventListener('touchend', (e) => {
+                clearTimeout(pressTimer);
+                if (!isLongPress) {
+                    // Normal tap behavior
+                    e.preventDefault(); // Stop ghost clicks
+                    currentDay = day; 
+                    renderWorkout();
+                    renderTabs(); // Re-render to highlight active tab
+                }
+            });
+
+            // 3. Touch Move: User is scrolling, CANCEL the long press
+            btn.addEventListener('touchmove', () => {
+                clearTimeout(pressTimer);
+            }, {passive: true});
+
+            // 4. Desktop Right Click (Backup)
+            btn.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 dayModes[day] = isTravel ? 'ppl' : 'travel';
                 saveLocal();
                 renderTabs();
                 if(day === currentDay) renderWorkout();
-            };
+            });
+
+            // 5. Desktop Click
+            btn.addEventListener('click', () => {
+                 // Handled by touchend on mobile, but needed for mouse users
+                 if (window.matchMedia('(hover: hover)').matches) {
+                    currentDay = day; 
+                    renderWorkout();
+                    renderTabs();
+                 }
+            });
 
             container.appendChild(btn);
         });
         
-        // Add a hint about right click
+        // Helper text update
         if(!document.getElementById('hint-added')) {
             const hint = document.createElement('div');
             hint.id = 'hint-added';
             hint.className = "col-span-3 sm:col-span-6 text-center text-[10px] text-slate-400 mt-1";
-            hint.textContent = "Tip: Long-press (or right click) a day to toggle Travel Mode ✈️";
+            hint.textContent = "Tap to view • Hold to toggle Travel Mode ✈️";
             container.appendChild(hint);
         }
     }
