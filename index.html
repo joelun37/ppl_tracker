@@ -8,30 +8,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Slate Gray & Royal Blue -->
-    <!-- Application Structure Plan: The application is structured as a single-page dashboard. The primary navigation consists of day-selector tabs (Mon-Sat) allowing the user to switch between workouts instantly. The main content area dynamically renders the selected day's workout plan, with interactive input fields for logging weight and reps for each set. This structure was chosen for its simplicity and task-oriented design, enabling the user to quickly access and log their daily workout without navigating away from the main view. Data is persisted in the browser's localStorage for a seamless experience. -->
-    <!-- Visualization & Content Choices: The core report content (workout exercises, sets, reps) is presented in clear, interactive tables. Goal: Track workout progress. Method: Interactive HTML tables with input fields and checkboxes. Interaction: Users can type their weight/reps and check off completed sets. Justification: This direct manipulation method is the most intuitive and efficient way for a user to log workout data. It's more effective than static text as it provides immediate feedback and a sense of accomplishment. Library/Method: Vanilla JavaScript for DOM manipulation and state management. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body { font-family: 'Inter', sans-serif; }
         .day-tab.active { background-color: #3b82f6; color: white; }
         .set-row.completed td { color: #9ca3af; }
         .set-row.completed input { text-decoration: line-through; color: #9ca3af; }
-        .completed-workout-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            flex-direction: column;
-            backdrop-filter: blur(4px);
-            border-radius: 0.5rem;
-        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800">
@@ -39,16 +20,16 @@
     <div class="container mx-auto max-w-4xl p-4 sm:p-6">
         <header class="text-center mb-6">
             <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Foundational PPL Plan</h1>
-            <p id="subtitle-display" class="text-slate-500 mt-1">8-Week Foundational Block - Week 1</p>
+            <p id="subtitle-display" class="text-slate-500 mt-1">8-Week Foundational Block</p>
         </header>
 
         <div id="week-nav-container" class="flex justify-between items-center bg-white rounded-lg shadow-md p-3 mb-4">
-            <button id="prev-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">◄ Prev</button>
+            <button id="prev-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">◄ Prev</button>
             <h2 class="text-center">
                 <span id="week-number-display" class="text-xl font-bold text-slate-700"></span>
-                <span id="week-date-display" class="text-sm font-normal text-slate-500 ml-1"></span>
+                <span id="week-date-display" class="block text-xs sm:text-sm font-normal text-slate-500 mt-1"></span>
             </h2>
-            <button id="next-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Next ►</button>
+            <button id="next-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">Next ►</button>
         </div>
                 
         <nav class="bg-white rounded-lg shadow-md p-2 mb-6">
@@ -59,448 +40,406 @@
         <main id="workout-container" class="space-y-6">
             </main>
         
-        <footer class="text-center mt-8 text-slate-400 text-sm">
-            <p>Remember to log your lifts and focus on progressive overload!</p>
+        <footer class="text-center mt-8 text-slate-400 text-sm pb-10">
+            <p>Remember to log your lifts!</p>
+            <button onclick="localStorage.clear(); window.location.reload()" class="mt-4 text-xs text-red-300 border border-red-200 p-1 rounded">Reset Local Data (Debug)</button>
         </footer>
     </div>
-    <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBlb1ZQxdIl3qRdGErAnxa2i69Y1a16-Btst_lE-gIU4lfYzSR3C8M-ruV6KXRTs1H/exec';
 
-    // Data for the PPL Plan
+    <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyBlb1ZQxdIl3qRdGErAnxa2i69Y1a16-Btst_lE-gIU4lfYzSR3C8M-ruV6KXRTs1H/exec';
+
+    // --- DATA STRUCTURES ---
     const workoutData = {
         monday: {
             name: "Push Day",
             exercises: [
-                { name: "Barbell Bench Press", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Seated Dumbbell Overhead Press", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Incline Dumbbell Press", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Dumbbell Lateral Raises", sets: 4, effort: "Light (12-15 reps)", rest: "60 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Triceps Rope Extension", sets: 4, effort: "Moderate (10-15 reps)", rest: "60 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-            ],
-            extra: { type: "Cardio", details: "30 minutes of Low-Intensity Steady State (LISS)" }
+                { name: "Barbell Bench Press", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3m", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "Seated DB Press", sets: 3, effort: "Mod (8-12 reps)", rest: "90s", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "Incline DB Press", sets: 3, effort: "Mod (8-12 reps)", rest: "90s", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "DB Lateral Raises", sets: 4, effort: "Light (12-15 reps)", rest: "60s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+                { name: "Triceps Rope Ext", sets: 4, effort: "Mod (10-15 reps)", rest: "60s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+            ]
         },
         tuesday: {
             name: "Pull Day",
             exercises: [
-                { name: "Pull-ups (or Lat Pulldowns)", sets: 3, effort: "Heavy (6-10 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Barbell Rows", sets: 3, effort: "Heavy (6-10 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Face Pulls", sets: 4, effort: "Light (15-20 reps)", rest: "60 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Dumbbell Curls", sets: 4, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-            ],
-            extra: null
+                { name: "Pull-ups", sets: 3, effort: "Heavy (6-10 reps)", rest: "2-3m", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "Barbell Rows", sets: 3, effort: "Heavy (6-10 reps)", rest: "2-3m", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "Face Pulls", sets: 4, effort: "Light (15-20 reps)", rest: "60s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+                { name: "DB Curls", sets: 4, effort: "Mod (8-12 reps)", rest: "90s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+            ]
         },
         wednesday: {
-            name: "Legs & Abs Day",
+            name: "Legs Day",
             exercises: [
-                { name: "Barbell Back Squats", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3 minutes", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Romanian Deadlifts", sets: 3, effort: "Moderate (8-12 reps)", rest: "90 seconds", logs: Array.from({ length: 3 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Leg Press", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Leg Curls", sets: 4, effort: "Moderate (10-15 reps)", rest: "90 seconds", logs: Array.from({ length: 4 }, () => ({ weight: '', reps: '', done: false })) },
-                { name: "Calf Raises", sets: 5, effort: "Light-to-Moderate (10-20 reps)", rest: "60 seconds", logs: Array.from({ length: 5 }, () => ({ weight: '', reps: '', done: false })) },
-            ],
-            extra: null
+                { name: "Barbell Squats", sets: 3, effort: "Heavy (5-8 reps)", rest: "2-3m", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "RDLs", sets: 3, effort: "Mod (8-12 reps)", rest: "90s", logs: Array(3).fill({ weight: '', reps: '', done: false }) },
+                { name: "Leg Press", sets: 4, effort: "Mod (10-15 reps)", rest: "90s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+                { name: "Leg Curls", sets: 4, effort: "Mod (10-15 reps)", rest: "90s", logs: Array(4).fill({ weight: '', reps: '', done: false }) },
+                { name: "Calf Raises", sets: 5, effort: "Light (15-20 reps)", rest: "60s", logs: Array(5).fill({ weight: '', reps: '', done: false }) },
+            ]
         },
         thursday: { name: "Push Day", copy: 'monday' },
         friday: { name: "Pull Day", copy: 'tuesday' },
-        saturday: { name: "Legs & Abs Day", copy: 'wednesday' },
-        sunday: { name: "Rest Day", exercises: [], extra: null }
+        saturday: { name: "Legs Day", copy: 'wednesday' },
+        sunday: { name: "Rest Day", exercises: [] }
     };
 
-    // Data for Travel Mode
     const travelWorkoutData = {
-        name: "Full Body Travel Workout",
+        name: "Travel / Hotel",
         exercises: [
-            { name: "Push-ups", sets: 4, effort: "10-20 reps", logs: Array.from({ length: 4 }, () => ({ weight: 0, reps: '', done: false })) },
-            { name: "Bodyweight Squats", sets: 4, effort: "15-25 reps", logs: Array.from({ length: 4 }, () => ({ weight: 0, reps: '', done: false })) },
-            { name: "Plank", sets: 4, effort: "Hold for 45-60 seconds", logs: Array.from({ length: 4 }, () => ({ weight: 0, reps: '', done: false })) },
-            { name: "Glute Bridges", sets: 4, effort: "15-20 reps", logs: Array.from({ length: 4 }, () => ({ weight: 0, reps: '', done: false })) },
-            { name: "Crunches", sets: 4, effort: "15-30 reps", logs: Array.from({ length: 4 }, () => ({ weight: 0, reps: '', done: false })) },
+            { name: "Push-ups", sets: 4, effort: "Failure", logs: Array(4).fill({ weight: 0, reps: '', done: false }) },
+            { name: "Bodyweight Squats", sets: 4, effort: "Failure", logs: Array(4).fill({ weight: 0, reps: '', done: false }) },
+            { name: "Plank", sets: 4, effort: "Max Hold", logs: Array(4).fill({ weight: 0, reps: '', done: false }) },
+            { name: "Glute Bridges", sets: 4, effort: "20 reps", logs: Array(4).fill({ weight: 0, reps: '', done: false }) },
         ]
     };
 
-    // Global State Variables
-    let appState = {};
-    let travelState = {};
-    let dayModes = {};
-    let currentDay = 'monday';
-    let allLogs = [];
+    // --- STATE MANAGEMENT ---
+    let appState = {}; // Holds the current week's inputs (Drafts)
+    let dayModes = {}; // Tracks if a day is 'ppl' or 'travel'
     let currentWeek = 1;
-    let totalWeeks = 1;
+    let currentDay = 'monday';
+    let allLogs = []; // Historical data from DB
     let latestLogMap = new Map();
 
-    // --- UTILITY FUNCTIONS ---
-    function parseRepRange(effortString) {
-        const match = effortString.match(/\((\d+)-(\d+)/);
-        if (match && match[1] && match[2]) {
-            return { min: parseInt(match[1]), max: parseInt(match[2]) };
-        }
-        return null;
-    }
+    // --- UTILS ---
 
-    function getIncrement(exerciseName) {
-        const lowerCaseName = exerciseName.toLowerCase();
-        if (lowerCaseName.includes('barbell') || lowerCaseName.includes('squat') || lowerCaseName.includes('deadlift')) return 2.5;
-        if (lowerCaseName.includes('dumbbell')) return 2.0;
-        return 5.0;
+    function getRealDateForWeek(weekNum) {
+        // FIXED: Calculates date based on TODAY, not the DB
+        const today = new Date();
+        const currentDayOfWeek = today.getDay(); // 0 is Sun
+        const msPerDay = 24 * 60 * 60 * 1000;
+        
+        // Find Monday of the *current real-world week*
+        const daysToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
+        const thisMonday = new Date(today.getTime() - (daysToMonday * msPerDay));
+        
+        // Adjust for the week number selected in UI (Assuming Week 1 is 'This Week' for PoC simplicity)
+        // If you want Week 1 to be in the past, we'd need a "StartDate" setting.
+        // For now, let's treat "currentWeek" as relative to the user's start.
+        // But to fix the "July" bug, we just return This Week's Monday + offset.
+        
+        // Actually, simpler approach for PoC: Just show the date range relative to Today.
+        // Let's assume Week 1 = This Week.
+        const targetMonday = new Date(thisMonday.getTime() + ((weekNum - 1) * 7 * msPerDay));
+        const targetSunday = new Date(targetMonday.getTime() + (6 * msPerDay));
+        return { start: targetMonday, end: targetSunday };
     }
 
     function createInitialState() {
         const state = JSON.parse(JSON.stringify(workoutData));
-        for (const dayKey in state) {
-            if (state[dayKey].copy) {
-                const sourceDay = state[state[dayKey].copy];
-                state[dayKey].exercises = JSON.parse(JSON.stringify(sourceDay.exercises));
-                state[dayKey].extra = JSON.parse(JSON.stringify(sourceDay.extra));
-                delete state[dayKey].copy;
+        for (const d in state) {
+            if (state[d].copy) {
+                state[d].exercises = JSON.parse(JSON.stringify(state[state[d].copy].exercises));
+                delete state[d].copy;
             }
         }
         return state;
     }
 
-    function precomputeLatestLogs() {
-        latestLogMap.clear();
-        for (const log of allLogs) {
-            if (log.Done) {
-                latestLogMap.set(log.Exercise, log);
-            }
+    // --- PERSISTENCE ---
+
+    function saveLocal() {
+        // FIXED: Saves everything to phone memory instantly
+        localStorage.setItem('ppl_appState', JSON.stringify(appState));
+        localStorage.setItem('ppl_dayModes', JSON.stringify(dayModes));
+        localStorage.setItem('ppl_currentWeek', currentWeek);
+        localStorage.setItem('ppl_timestamp', new Date().toISOString());
+    }
+
+    function loadLocal() {
+        const savedState = localStorage.getItem('ppl_appState');
+        const savedModes = localStorage.getItem('ppl_dayModes');
+        const savedWeek = localStorage.getItem('ppl_currentWeek');
+
+        if (savedState) appState = JSON.parse(savedState);
+        else appState = createInitialState();
+
+        if (savedModes) dayModes = JSON.parse(savedModes);
+        else Object.keys(workoutData).forEach(d => dayModes[d] = 'ppl');
+
+        if (savedWeek) currentWeek = parseInt(savedWeek);
+    }
+
+    async function saveToCloud(logObject) {
+        // FIXED: Uses 'no-cors' but we rely on LocalStorage for UI, so it doesn't matter if it's slow
+        try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ log: logObject })
+            });
+            console.log("Sent to cloud");
+        } catch (e) {
+            console.error("Cloud save failed (Offline?)", e);
         }
     }
 
-    // --- DATA HANDLING ---
-async function saveSetData(logObject) {
-    try {
-        await fetch(SCRIPT_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ log: logObject }) // Send the log object under a 'log' key
-        });
-        return true; // Assume success if fetch doesn't throw an error
-    } catch (error) {
-        console.error("Failed to save set:", error);
-        return false; // Return false on failure
-    }
-}
-
-    function loadData() {
-        return new Promise((resolve, reject) => {
+    function loadCloudData() {
+        return new Promise((resolve) => {
             const callbackName = 'jsonpCallback_' + Date.now();
-            window[callbackName] = function(logs) {
-                allLogs = logs;
-                precomputeLatestLogs();
-                if (allLogs.length > 0) {
-                    totalWeeks = Math.max(...allLogs.map(log => log.Week || 1));
-                }
-                currentWeek = totalWeeks;
-                document.body.removeChild(script);
+            window[callbackName] = function(data) {
+                allLogs = data;
+                // Build a map of the LAST time an exercise was done
+                allLogs.forEach(log => {
+                    if(log.Done) latestLogMap.set(log.Exercise, log);
+                });
                 delete window[callbackName];
+                document.body.removeChild(script);
                 resolve();
             };
             const script = document.createElement('script');
             script.src = SCRIPT_URL + '?callback=' + callbackName;
-            script.onerror = reject;
+            script.onerror = resolve; // Continue even if offline
             document.body.appendChild(script);
         });
     }
 
-    // --- RENDERING LOGIC ---
-function renderWeek(weekNumber) {
-    currentWeek = weekNumber;
-    const weeklyAppState = createInitialState();
-    const currentWeekLogs = allLogs.filter(log => log.Week == currentWeek);
+    // --- LOGIC: PROGRESSIVE OVERLOAD & DELOAD ---
 
-    // 1. Load your SAVED historical data FIRST.
-    currentWeekLogs.forEach(log => {
-        const dayInfo = weeklyAppState[log.Day];
-        if (dayInfo && dayInfo.exercises) {
-            const exercise = dayInfo.exercises.find(ex => ex.name === log.Exercise);
-            if (exercise && exercise.logs[log.SetIndex] !== undefined) {
-                exercise.logs[log.SetIndex] = {
-                    weight: log.Weight,
-                    reps: log.Reps,
-                    done: log.Done
-                };
-            }
-        }
-    });
-
-    // 2. THEN, fill in the blanks with progressive overload suggestions.
-    Object.values(weeklyAppState).forEach(dayData => {
-        if (!dayData.exercises) return;
-        dayData.exercises.forEach(exercise => {
-            exercise.logs.forEach(log => {
-                // This check ensures we DON'T overwrite your completed sets.
-                if (!log.done) {
-                    const lastWorkoutSet = latestLogMap.get(exercise.name);
-                    if (lastWorkoutSet) {
-                        const repRange = parseRepRange(exercise.effort);
-                        let suggestedWeight = parseFloat(lastWorkoutSet.Weight);
-                        let suggestedReps = '';
-                        if (repRange && lastWorkoutSet.Reps >= repRange.max) {
-                            suggestedWeight += getIncrement(exercise.name);
-                            suggestedReps = repRange.min;
+    function applySuggestions() {
+        // This runs once when we load the data
+        Object.values(appState).forEach(dayData => {
+            if (!dayData.exercises) return;
+            dayData.exercises.forEach(ex => {
+                const lastLog = latestLogMap.get(ex.name);
+                
+                // Only suggest if the user hasn't typed anything yet
+                ex.logs.forEach(log => {
+                    if (!log.weight && !log.reps && !log.done && lastLog) {
+                        
+                        // FIXED: DELOAD LOGIC
+                        const daysSince = (new Date() - new Date(lastLog.Timestamp)) / (1000 * 60 * 60 * 24);
+                        let weight = parseFloat(lastLog.Weight);
+                        
+                        if (daysSince > 21) {
+                            // 3 weeks off? Drop 20%
+                            weight = weight * 0.8;
+                        } else if (daysSince > 10) {
+                            // 10 days off? Drop 10%
+                            weight = weight * 0.9;
                         } else {
-                            suggestedReps = (parseInt(lastWorkoutSet.Reps) || 0) + 1;
+                            // Progressive Overload: Add weight if they hit max reps
+                            // Simple logic: if they did > 8 reps, add 2.5kg
+                            if (parseInt(lastLog.Reps) >= 8) weight += 2.5; 
                         }
-                        log.weight = suggestedWeight;
-                        log.reps = suggestedReps;
+                        
+                        // Round to nearest 2.5
+                        weight = Math.round(weight / 2.5) * 2.5;
+
+                        log.weight = weight;
+                        log.reps = lastLog.Reps; // Keep rep target same
                     }
-                }
+                });
             });
         });
-    });
-
-    appState = weeklyAppState;
-
-    // The rest of the function for displaying dates and updating buttons is unchanged...
-    const dateDisplay = document.getElementById('week-date-display');
-    let weekStartDate;
-    if (allLogs.length > 0) {
-        const firstLogDate = new Date(allLogs[0].Timestamp);
-        const firstLogDay = firstLogDate.getDay();
-        const daysToSubtract = firstLogDay === 0 ? 6 : firstLogDay - 1;
-        const programStartDate = new Date(firstLogDate);
-        programStartDate.setDate(firstLogDate.getDate() - daysToSubtract);
-        const weeksToAdd = currentWeek - 1;
-        weekStartDate = new Date(programStartDate);
-        weekStartDate.setDate(programStartDate.getDate() + (weeksToAdd * 7));
     }
-    if (weekStartDate) {
-        const weekEndDate = new Date(weekStartDate);
-        weekEndDate.setDate(weekStartDate.getDate() + 6);
-        dateDisplay.textContent = `(${weekStartDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${weekEndDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})`;
-    } else {
-        dateDisplay.textContent = '';
-    }
-    document.getElementById('subtitle-display').textContent = `Your 8-Week Foundational Block - Week ${currentWeek}`;
-    document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
-    document.getElementById('prev-week-btn').disabled = (currentWeek <= 1);
-    document.getElementById('next-week-btn').disabled = (currentWeek >= totalWeeks + 1);
 
-    renderWorkout(currentDay);
-}
+    // --- RENDER ---
 
-    function renderWorkout(day) {
-        currentDay = day;
-        const workoutContainer = document.getElementById('workout-container');
-        workoutContainer.innerHTML = '';
+    function renderHeader() {
+        const { start, end } = getRealDateForWeek(currentWeek);
+        const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         
-        if (dayModes[day] === 'travel') {
-            renderTravelWorkout();
-            updateDayTabs();
+        document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
+        document.getElementById('week-date-display').textContent = `${fmt(start)} - ${fmt(end)}`;
+        
+        document.getElementById('prev-week-btn').disabled = currentWeek <= 1;
+        document.getElementById('prev-week-btn').classList.toggle('opacity-50', currentWeek <= 1);
+    }
+
+    function renderTabs() {
+        const container = document.getElementById('day-selector');
+        container.innerHTML = '';
+        Object.keys(workoutData).forEach(day => {
+            const isTravel = dayModes[day] === 'travel';
+            const isActive = day === currentDay;
+            const label = day.substring(0,3).toUpperCase();
+            
+            const btn = document.createElement('button');
+            btn.className = `p-2 rounded-md font-bold text-sm transition-all border ${
+                isActive ? 'bg-blue-500 text-white border-blue-600' : 
+                isTravel ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`;
+            
+            btn.innerHTML = `
+                <div>${label}</div>
+                <div class="text-[10px] font-normal opacity-80">${isTravel ? '✈️' : workoutData[day].name.split(' ')[0]}</div>
+            `;
+            
+            // Left click: Select Day
+            btn.onclick = () => { currentDay = day; renderWorkout(); };
+            
+            // Long Press / Right Click (Desktop): Toggle Travel
+            btn.oncontextmenu = (e) => {
+                e.preventDefault();
+                dayModes[day] = isTravel ? 'ppl' : 'travel';
+                saveLocal();
+                renderTabs();
+                if(day === currentDay) renderWorkout();
+            };
+
+            container.appendChild(btn);
+        });
+        
+        // Add a hint about right click
+        if(!document.getElementById('hint-added')) {
+            const hint = document.createElement('div');
+            hint.id = 'hint-added';
+            hint.className = "col-span-3 sm:col-span-6 text-center text-[10px] text-slate-400 mt-1";
+            hint.textContent = "Tip: Long-press (or right click) a day to toggle Travel Mode ✈️";
+            container.appendChild(hint);
+        }
+    }
+
+    function renderWorkout() {
+        const container = document.getElementById('workout-container');
+        container.innerHTML = '';
+
+        const isTravel = dayModes[currentDay] === 'travel';
+        let data = isTravel ? travelWorkoutData : appState[currentDay];
+        
+        // If switching to travel for first time, we might need to copy template structure
+        if (isTravel && !appState[currentDay + '_travel_data']) {
+            appState[currentDay + '_travel_data'] = JSON.parse(JSON.stringify(travelWorkoutData));
+        }
+        if (isTravel) data = appState[currentDay + '_travel_data'];
+
+        if (!data || !data.exercises || data.exercises.length === 0) {
+            container.innerHTML = `<div class="bg-white p-8 rounded-lg shadow text-center text-slate-500">Rest Day 🧘</div>`;
             return;
         }
 
-        const dayDataToRender = appState[day];
-        if (dayDataToRender.exercises.length === 0) {
-            workoutContainer.innerHTML = `<div class="bg-white rounded-lg shadow-md p-6 text-center"><h3 class="text-xl font-bold text-slate-800">Rest Day 🧘</h3><p class="text-slate-500 mt-2">Time to recover.</p></div>`;
-            updateDayTabs();
-            return;
-        }
+        data.exercises.forEach((ex, exIdx) => {
+            const card = document.createElement('div');
+            card.className = "bg-white rounded-lg shadow-md overflow-hidden";
+            
+            let rows = '';
+            ex.logs.forEach((log, setIdx) => {
+                rows += `
+                <tr class="set-row border-b border-slate-100 last:border-0 ${log.done ? 'completed bg-slate-50' : ''}">
+                    <td class="p-3 text-center text-slate-400 font-mono text-sm">${setIdx + 1}</td>
+                    <td class="p-2 text-xs text-slate-500">${ex.effort}</td>
+                    <td class="p-2">
+                        <input type="tel" data-type="weight" data-ex="${exIdx}" data-set="${setIdx}" 
+                            value="${log.weight}" placeholder="kg" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+                    </td>
+                    <td class="p-2">
+                        <input type="tel" data-type="reps" data-ex="${exIdx}" data-set="${setIdx}" 
+                            value="${log.reps}" placeholder="reps" 
+                            class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+                    </td>
+                    <td class="p-3 text-center">
+                        <input type="checkbox" data-type="done" data-ex="${exIdx}" data-set="${setIdx}" 
+                            ${log.done ? 'checked' : ''} 
+                            class="w-6 h-6 text-blue-600 rounded focus:ring-blue-500">
+                    </td>
+                </tr>`;
+            });
 
-        dayDataToRender.exercises.forEach((exercise, exerciseIndex) => {
-            let setsHtml = '';
-            for (let i = 0; i < exercise.sets; i++) {
-                const log = exercise.logs[i] || { weight: '', reps: '', done: false };
-                setsHtml += `
-                    <tr class="set-row ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}">
-                        <td class="p-2 text-center font-medium text-slate-500">${i + 1}</td>
-                        <td class="p-2 text-center text-slate-600">${exercise.effort}</td>
-                        <td class="p-2"><input type="number" class="w-full rounded-md border-slate-300 shadow-sm" value="${log.weight}" placeholder="kg" data-type="weight"></td>
-                        <td class="p-2"><input type="number" class="w-full rounded-md border-slate-300 shadow-sm" value="${log.reps}" placeholder="reps" data-type="reps"></td>
-                        <td class="p-2 text-center"><input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" ${log.done ? 'checked' : ''} data-type="done"></td>
-                    </tr>`;
-            }
-            workoutContainer.innerHTML += `
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="bg-slate-50 p-4 border-b border-slate-200"><h3 class="text-xl font-bold text-slate-800">${exercise.name}</h3><p class="text-sm text-slate-500">Rest: ${exercise.rest}</p></div>
-                    <div class="p-2"><table class="w-full">
-                        <thead><tr class="border-b border-slate-200">
-                            <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">Set</th><th class="p-2 font-semibold text-slate-600 text-sm w-4/12">Target</th>
-                            <th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Weight</th><th class="p-2 font-semibold text-slate-600 text-sm w-3/12">Reps</th>
-                            <th class="p-2 font-semibold text-slate-600 text-sm w-1/12">✓</th>
-                        </tr></thead>
-                        <tbody>${setsHtml}</tbody>
-                    </table></div>
-                </div>`;
-        });
-
-        updateDayTabs();
-        addEventListeners();
-    }
-    
-function renderTravelWorkout() {
-    const workoutContainer = document.getElementById('workout-container');
-    workoutContainer.innerHTML = '';
-
-    // 1. Create a fresh travel workout state from the template.
-    travelState = JSON.parse(JSON.stringify(travelWorkoutData));
-
-    // 2. Find and apply any historical logs for this specific travel day.
-    const logsForThisDay = allLogs.filter(log => 
-        String(log.Week) == String(currentWeek) && 
-        log.Day === currentDay
-    );
-
-    logsForThisDay.forEach(log => {
-        const exercise = travelState.exercises.find(ex => ex.name === log.Exercise);
-        if (exercise && exercise.logs[log.SetIndex] !== undefined) {
-            exercise.logs[log.SetIndex].reps = log.Reps;
-            exercise.logs[log.SetIndex].done = log.Done;
-        }
-    });
-
-    // 3. Apply progressive overload suggestions ONLY to sets that are not yet done.
-    travelState.exercises.forEach(exercise => {
-        exercise.logs.forEach(log => {
-            if (!log.done) {
-                const lastWorkoutSet = latestLogMap.get(exercise.name);
-                if (lastWorkoutSet && lastWorkoutSet.Reps) {
-                    log.reps = (parseInt(lastWorkoutSet.Reps) || 0) + 1;
-                }
-            }
-        });
-    });
-
-    // 4. Render the HTML using the now-correctly-populated travelState.
-    let exerciseCardsHtml = '';
-    travelState.exercises.forEach((exercise, exerciseIndex) => {
-        let setsHtml = '';
-        for (let i = 0; i < exercise.sets; i++) {
-            const log = exercise.logs[i];
-            setsHtml += `<tr class="set-row ${log.done ? 'completed' : ''}" data-exercise-index="${exerciseIndex}" data-set-index="${i}"><td class="p-2 text-center font-medium text-slate-500">${i + 1}</td><td class="p-2 text-center text-slate-600">${exercise.effort}</td><td class="p-2"><input type="number" class="w-full rounded-md border-slate-300 shadow-sm" value="${log.reps}" placeholder="reps" data-type="reps"></td><td class="p-2 text-center"><input type="checkbox" class="h-5 w-5 rounded border-slate-300 text-blue-600" ${log.done ? 'checked' : ''} data-type="done"></td></tr>`;
-        }
-        exerciseCardsHtml += `<div class="bg-white rounded-lg shadow-md overflow-hidden"><div class="bg-slate-50 p-4 border-b border-slate-200"><h3 class="text-xl font-bold text-slate-800">${exercise.name}</h3></div><div class="p-2"><table class="w-full"><thead><tr class="border-b border-slate-200"><th class="p-2 font-semibold text-slate-600 text-sm w-1/12">Set</th><th class="p-2 font-semibold text-slate-600 text-sm w-8/12">Target</th><th class="p-2 font-semibold text-slate-600 text-sm w-2/12">Reps</th><th class="p-2 font-semibold text-slate-600 text-sm w-1/12">✓</th></tr></thead><tbody>${setsHtml}</tbody></table></div></div>`;
-    });
-
-    workoutContainer.innerHTML = exerciseCardsHtml;
-    addEventListeners();
-}
-    function updateDayTabs() {
-        const daySelector = document.getElementById('day-selector');
-        daySelector.innerHTML = '';
-        Object.keys(workoutData).forEach(dayKey => {
-            const isTravel = dayModes[dayKey] === 'travel';
-            const dayInfo = workoutData[dayKey];
-            const button = document.createElement('button');
-            const bgColorClass = isTravel ? 'bg-amber-100 hover:bg-amber-200' : 'bg-slate-100 hover:bg-slate-200';
-            button.className = `day-tab-container group relative p-2 rounded-md font-semibold text-sm sm:text-base transition-colors duration-200 ${bgColorClass} ${dayKey === currentDay ? 'ring-2 ring-blue-500' : ''}`;
-            button.dataset.day = dayKey;
-            const buttonText = isTravel ? 'Travel Day' : dayInfo.name;
-            const dayAbbreviation = `(${dayKey.charAt(0).toUpperCase() + dayKey.slice(1, 3)})`;
-            const icon = isTravel ? '💼' : '✈️';
-            button.innerHTML = `<span>${buttonText} ${dayAbbreviation}</span><span class="absolute top-1 right-1 text-base opacity-50 group-hover:opacity-100 transition-opacity" data-action="toggle-travel" data-day="${dayKey}">${icon}</span>`;
-            daySelector.appendChild(button);
+            card.innerHTML = `
+                <div class="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800">${ex.name}</h3>
+                        <p class="text-xs text-slate-500">Rest: ${ex.rest || 'N/A'}</p>
+                    </div>
+                </div>
+                <table class="w-full">
+                    <thead class="bg-slate-100 text-xs text-slate-500 uppercase">
+                        <tr><th class="p-2 w-8">#</th><th class="p-2">Goal</th><th class="p-2 w-20">Kg</th><th class="p-2 w-20">Reps</th><th class="p-2 w-10">✓</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            `;
+            container.appendChild(card);
         });
     }
 
-    function addEventListeners() {
-        document.getElementById('workout-container').addEventListener('change', handleInteraction);
-    }
+    // --- EVENTS ---
+
+    document.getElementById('workout-container').addEventListener('input', (e) => {
+        handleInput(e);
+    });
     
-async function handleInteraction(e) {
-    const target = e.target;
-    const setRow = target.closest('.set-row');
-    if (!setRow) return;
-    const { exerciseIndex, setIndex } = setRow.dataset;
-    const dayKey = currentDay;
-    const isTravelDay = dayModes[dayKey] === 'travel';
-    const exerciseSource = isTravelDay ? travelState : appState[dayKey];
-    const exercise = exerciseSource.exercises[exerciseIndex];
-    if (!exercise) return;
-    const log = exercise.logs[setIndex];
-    const dataType = target.dataset.type;
-    if (dataType === "done") {
-        log.done = target.checked;
-        setRow.classList.toggle('completed', log.done);
-    } else {
-        log[dataType] = target.value;
-    }
+    document.getElementById('workout-container').addEventListener('change', (e) => {
+        // Handle checkbox specific logic
+        if(e.target.type === 'checkbox') handleInput(e);
+    });
 
-    // --- THIS IS THE FIX ---
-    // When a set is checked as done, save it and then update our local data.
-    if (dataType === "done" && log.done) {
-        // Reconstruct the log object to be saved.
-        const newLog = {
-            Timestamp: new Date().toISOString(),
-            Week: currentWeek,
-            Day: dayKey,
-            Exercise: exercise.name,
-            SetIndex: setIndex,
-            Weight: log.weight || 0,
-            Reps: log.reps || '',
-            Done: log.done,
-        };
+    function handleInput(e) {
+        const el = e.target;
+        if (!el.dataset.type) return;
 
-        const success = await saveSetData(newLog);
+        const isTravel = dayModes[currentDay] === 'travel';
+        const dataKey = isTravel ? currentDay + '_travel_data' : currentDay;
+        const exIdx = el.dataset.ex;
+        const setIdx = el.dataset.set;
+        
+        const log = appState[dataKey].exercises[exIdx].logs[setIdx];
 
-        if (success) {
-            // If the save was successful, add the new log to our local array...
-            allLogs.push(newLog);
-            // ...and re-calculate our progressive overload data.
-            precomputeLatestLogs();
-        }
-    }
-}
-
-    // --- APP INITIALIZATION ---
-    function deduceModesForWeek(weekNumber) {
-        dayModes = {};
-        Object.keys(workoutData).forEach(dayKey => { dayModes[dayKey] = 'ppl'; });
-        const travelExerciseNames = new Set(travelWorkoutData.exercises.map(ex => ex.name));
-        const logsForThisWeek = allLogs.filter(log => String(log.Week) == String(weekNumber));
-        for (const log of logsForThisWeek) {
-            if (travelExerciseNames.has(log.Exercise)) {
-                dayModes[log.Day] = 'travel';
+        if (el.dataset.type === 'done') {
+            log.done = el.checked;
+            el.closest('tr').classList.toggle('completed', log.done);
+            
+            // If marked DONE, send to cloud
+            if (log.done) {
+                const payload = {
+                    Timestamp: new Date().toISOString(),
+                    Week: currentWeek,
+                    Day: currentDay,
+                    Exercise: appState[dataKey].exercises[exIdx].name,
+                    SetIndex: setIdx,
+                    Weight: log.weight,
+                    Reps: log.reps,
+                    Done: true
+                };
+                saveToCloud(payload);
             }
-        }
-    }
-    
-    function renderView() {
-        renderWeek(currentWeek);
-    }
-
-async function init() {
-    await loadData();
-    const today = new Date().getDay();
-    const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    currentDay = dayMap[today];
-    deduceModesForWeek(currentWeek);
-
-    document.getElementById('prev-week-btn').addEventListener('click', () => {
-        if (currentWeek > 1) {
-            currentWeek--;
-            deduceModesForWeek(currentWeek);
-            renderView();
-        }
-    });
-    document.getElementById('next-week-btn').addEventListener('click', () => {
-        if (currentWeek < totalWeeks + 1) {
-            currentWeek++;
-            deduceModesForWeek(currentWeek);
-            renderView();
-        }
-    });
-
-    document.getElementById('day-selector').addEventListener('click', (e) => {
-        const dayButton = e.target.closest('.day-tab-container');
-        if (!dayButton) return;
-        const actionTarget = e.target.closest('[data-action="toggle-travel"]');
-
-        if (actionTarget) {
-            // The check that prevented toggling has been removed.
-            const dayToToggle = actionTarget.dataset.day;
-            dayModes[dayToToggle] = (dayModes[dayToToggle] === 'travel') ? 'ppl' : 'travel';
         } else {
-            currentDay = dayButton.dataset.day;
+            log[el.dataset.type] = el.value;
         }
-        renderView();
-    });
 
-    renderView();
-}
+        // FIXED: Save to local storage on EVERY change
+        saveLocal();
+    }
+
+    // --- INIT ---
+
+    async function init() {
+        // 1. Load Local (Instant)
+        loadLocal();
+        
+        // 2. Set Day to actual today
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        currentDay = days[new Date().getDay()];
+        
+        // 3. Render initial view
+        renderHeader();
+        renderTabs();
+        renderWorkout();
+
+        // 4. Fetch Cloud History (Background)
+        try {
+            await loadCloudData();
+            console.log("Cloud data loaded. Applying logic...");
+            applySuggestions();
+            // Re-render to show suggestions if fields were empty
+            renderWorkout(); 
+        } catch (e) {
+            console.log("Working offline.");
+        }
+    }
+    
+    // Navigation
+    document.getElementById('prev-week-btn').onclick = () => { if(currentWeek > 1) { currentWeek--; saveLocal(); renderHeader(); }};
+    document.getElementById('next-week-btn').onclick = () => { currentWeek++; saveLocal(); renderHeader(); };
 
     init();
+
     </script>
 </body>
 </html>
