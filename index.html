@@ -163,15 +163,13 @@
         if (savedWeek) currentWeek = parseInt(savedWeek);
     }
 
-async function saveToCloud(logObject) {
+async function saveToCloud(payload) {
         try {
-            // FIX 1: Send flattened data (remove the { log: ... } wrapper)
-            // FIX 2: Use "text/plain" so the browser doesn't block the request
             await fetch(SCRIPT_URL, {
                 method: 'POST',
-                mode: 'no-cors', 
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify(logObject) 
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain' }, // 'text/plain' avoids CORS preflight
+                body: JSON.stringify(payload)
             });
             console.log("Sent to cloud");
         } catch (e) {
@@ -421,7 +419,7 @@ function renderTabs() {
         if(e.target.type === 'checkbox') handleInput(e);
     });
 
-    function handleInput(e) {
+function handleInput(e) {
         const el = e.target;
         if (!el.dataset.type) return;
 
@@ -436,17 +434,18 @@ function renderTabs() {
             log.done = el.checked;
             el.closest('tr').classList.toggle('completed', log.done);
             
-            // If marked DONE, send to cloud
+            // IF marked DONE, send to cloud with CORRECT STRUCTURE
             if (log.done) {
                 const payload = {
-                    Timestamp: new Date().toISOString(),
-                    Week: currentWeek,
-                    Day: currentDay,
-                    Exercise: appState[dataKey].exercises[exIdx].name,
-                    SetIndex: setIdx,
-                    Weight: log.weight,
-                    Reps: log.reps,
-                    Done: true
+                    week: currentWeek,          // script expects 'week' (lowercase)
+                    day: currentDay,            // script expects 'day'
+                    exercise: appState[dataKey].exercises[exIdx].name, // script expects 'exercise'
+                    setIndex: setIdx,           // script expects 'setIndex'
+                    log: {                      // script expects a nested 'log' object
+                        weight: log.weight,
+                        reps: log.reps,
+                        done: true
+                    }
                 };
                 saveToCloud(payload);
             }
@@ -454,7 +453,6 @@ function renderTabs() {
             log[el.dataset.type] = el.value;
         }
 
-        // FIXED: Save to local storage on EVERY change
         saveLocal();
     }
 
