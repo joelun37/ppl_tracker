@@ -163,18 +163,19 @@
         if (savedWeek) currentWeek = parseInt(savedWeek);
     }
 
-    async function saveToCloud(logObject) {
-        // FIXED: Uses 'no-cors' but we rely on LocalStorage for UI, so it doesn't matter if it's slow
+async function saveToCloud(logObject) {
         try {
+            // FIX 1: Send flattened data (remove the { log: ... } wrapper)
+            // FIX 2: Use "text/plain" so the browser doesn't block the request
             await fetch(SCRIPT_URL, {
                 method: 'POST',
                 mode: 'no-cors', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ log: logObject })
+                headers: { 'Content-Type': 'text/plain' },
+                body: JSON.stringify(logObject) 
             });
             console.log("Sent to cloud");
         } catch (e) {
-            console.error("Cloud save failed (Offline?)", e);
+            console.error("Cloud save failed", e);
         }
     }
 
