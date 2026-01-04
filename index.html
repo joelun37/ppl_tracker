@@ -3,33 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PPL Workout Tracker</title>
+    <title>Smart PPL Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        .day-tab.active { background-color: #3b82f6; color: white; }
+        .day-tab.active { background-color: #3b82f6; color: white; border-color: #2563eb; }
         .set-row.completed td { color: #9ca3af; }
         .set-row.completed input { text-decoration: line-through; color: #9ca3af; }
+        
+        .suggestion-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+
+        .tooltip-container { position: relative; display: inline-flex; align-items: center; }
+        .tooltip-text {
+            visibility: hidden;
+            width: 180px;
+            background-color: #334155;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 50;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -90px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 11px;
+            font-weight: normal;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .tooltip-container:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 100;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-content {
+            background: white; width: 90%; max-width: 400px;
+            border-radius: 12px; padding: 20px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .has-data-dot {
+            height: 6px;
+            width: 6px;
+            background-color: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 4px;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-slate-100 text-slate-800 pb-24">
+
+    <div id="info-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content text-center">
+            <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-2">Exercise Name</h3>
+            <p class="text-sm text-slate-500 mb-6">Need a refresher on form?</p>
+            
+            <a id="modal-yt-link" href="#" target="_blank" class="block w-full bg-red-600 text-white font-bold py-3 rounded-lg mb-3 hover:bg-red-700 transition">
+                ▶ Watch on YouTube
+            </a>
+            <button onclick="document.getElementById('info-modal').style.display='none'" class="text-slate-400 text-sm underline mt-2">Close</button>
+        </div>
+    </div>
 
     <div class="container mx-auto max-w-4xl p-4 sm:p-6">
         <header class="text-center mb-6">
-            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Foundational PPL Plan</h1>
+            <h1 class="text-3xl sm:text-4xl font-bold text-slate-900">Smart PPL Plan</h1>
             <p id="subtitle-display" class="text-slate-500 mt-1">8-Week Foundational Block</p>
         </header>
 
         <div id="week-nav-container" class="flex justify-between items-center bg-white rounded-lg shadow-md p-3 mb-4">
-            <button id="prev-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">◄ Prev</button>
+            <button id="prev-week-btn" onclick="navigateWeek(-1)" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">◄ Prev</button>
             <h2 class="text-center">
                 <span id="week-number-display" class="text-xl font-bold text-slate-700"></span>
                 <span id="week-date-display" class="block text-xs sm:text-sm font-normal text-slate-500 mt-1"></span>
             </h2>
-            <button id="next-week-btn" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">Next ►</button>
+            <button id="next-week-btn" onclick="navigateWeek(1)" class="px-4 py-2 bg-slate-200 rounded-md hover:bg-slate-300 transition-colors">Next ►</button>
         </div>
                 
         <nav class="bg-white rounded-lg shadow-md p-2 mb-6">
@@ -40,10 +108,24 @@
         <main id="workout-container" class="space-y-6">
             </main>
         
-        <footer class="text-center mt-8 text-slate-400 text-sm pb-10">
-            <p>Remember to log your lifts!</p>
-            <button onclick="localStorage.clear(); window.location.reload()" class="mt-4 text-xs text-red-300 border border-red-200 p-1 rounded">Reset Local Data (Debug)</button>
-        </footer>
+        <div class="bg-slate-200 p-4 rounded-lg mt-8 text-xs text-slate-600 font-mono">
+            <h4 class="font-bold text-slate-700 mb-2">Database Inspector (Debug)</h4>
+            <div id="debug-info" class="mb-2 text-blue-600"></div>
+            <div id="debug-log-list" class="h-32 overflow-y-auto bg-white p-2 rounded border border-slate-300">
+                Loading history...
+            </div>
+            <button onclick="debugReset()" class="mt-4 text-xs text-red-500 border border-red-300 p-1 rounded bg-white">Clear Local Storage & Reload</button>
+        </div>
+    </div>
+
+    <div id="save-bar" class="fixed bottom-0 left-0 w-full bg-white border-t border-slate-200 p-4 shadow-lg transform translate-y-full transition-transform duration-300 flex justify-between items-center z-50">
+        <div class="text-sm">
+            <span class="font-bold text-blue-600">⚡ In Progress</span>
+            <span class="text-xs text-slate-500 block">Auto-saved to device.</span>
+        </div>
+        <button id="save-btn" onclick="finishWorkout()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all flex items-center">
+            <span>Finish & Sync</span>
+        </button>
     </div>
 
     <script>
@@ -96,36 +178,130 @@
         ]
     };
 
-    // --- STATE MANAGEMENT ---
-    let appState = {}; // Holds the current week's inputs (Drafts)
-    let dayModes = {}; // Tracks if a day is 'ppl' or 'travel'
-    let currentWeek = 1;
-    let currentDay = 'monday';
-    let allLogs = []; // Historical data from DB
-    let latestLogMap = new Map();
+    const manualAliases = {
+        "rdls": "romanian deadlifts",
+        "seated db press": "seated dumbbell overhead press",
+        "db lateral raises": "dumbbell lateral raises",
+        "triceps rope ext": "triceps rope extension",
+        "pull-ups": "pull-ups (or lat pulldowns)",
+        "barbell squats": "barbell back squats",
+        "db curls": "dumbbell curls"
+    };
 
-    // --- UTILS ---
+    // --- STATE MANAGEMENT ---
+    let appState = {}; 
+    let dayModes = {}; 
+    let currentWeek = 1; 
+    let currentDay = 'monday';
+    let allLogs = []; 
+    let navigableWeeks = []; 
+    let firstLogDate = null; 
+    let useImperial = false; 
+    let isDirty = false;
+
+    // --- SMART WEEK UTILS ---
+
+    function getWeekStartAnchor() {
+        if (firstLogDate) {
+            const date = new Date(firstLogDate);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1); 
+            return new Date(date.setDate(diff));
+        }
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(today.setDate(diff));
+    }
+
+    function calculateWeekNumber(dateObj) {
+        const anchor = getWeekStartAnchor();
+        const oneWeek = 1000 * 60 * 60 * 24 * 7;
+        const diffWeeks = Math.floor((dateObj - anchor) / oneWeek);
+        return diffWeeks + 1;
+    }
+
+    function getCurrentViewDate() {
+        const weekStart = getWeekStartAnchor();
+        const weekOffset = (currentWeek - 1) * 7;
+        const dayOffsetMap = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5, 'sunday': 6
+        };
+        const dayOffset = dayOffsetMap[currentDay] || 0;
+        
+        const targetDate = new Date(weekStart);
+        targetDate.setDate(weekStart.getDate() + weekOffset + dayOffset);
+        targetDate.setHours(0,0,0,0);
+        return targetDate;
+    }
 
     function getRealDateForWeek(weekNum) {
-        // FIXED: Calculates date based on TODAY, not the DB
-        const today = new Date();
-        const currentDayOfWeek = today.getDay(); // 0 is Sun
-        const msPerDay = 24 * 60 * 60 * 1000;
+        const anchor = getWeekStartAnchor();
+        const start = new Date(anchor);
+        start.setDate(anchor.getDate() + (weekNum - 1) * 7);
         
-        // Find Monday of the *current real-world week*
-        const daysToMonday = currentDayOfWeek === 0 ? 6 : currentDayOfWeek - 1;
-        const thisMonday = new Date(today.getTime() - (daysToMonday * msPerDay));
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        return { start, end };
+    }
+
+    function updateNavigableWeeks() {
+        const validWeeks = new Set();
+        let earliest = null;
+        if (allLogs.length > 0) {
+            allLogs.forEach(log => {
+                const d = new Date(log.Timestamp);
+                if (!earliest || d < earliest) earliest = d;
+            });
+            firstLogDate = earliest; 
+            allLogs.forEach(log => {
+                const d = new Date(log.Timestamp);
+                validWeeks.add(calculateWeekNumber(d));
+            });
+        } else {
+            firstLogDate = new Date();
+        }
+
+        const todayWeek = calculateWeekNumber(new Date());
+        validWeeks.add(todayWeek);
+        navigableWeeks = Array.from(validWeeks).sort((a,b) => a - b);
         
-        // Adjust for the week number selected in UI (Assuming Week 1 is 'This Week' for PoC simplicity)
-        // If you want Week 1 to be in the past, we'd need a "StartDate" setting.
-        // For now, let's treat "currentWeek" as relative to the user's start.
-        // But to fix the "July" bug, we just return This Week's Monday + offset.
+        if (!localStorage.getItem('ppl_currentWeek')) {
+            currentWeek = todayWeek;
+        } else {
+            const stored = parseInt(localStorage.getItem('ppl_currentWeek'));
+            if(navigableWeeks.includes(stored)) currentWeek = stored;
+            else currentWeek = todayWeek;
+        }
+    }
+
+    // --- NAVIGATION ---
+
+    function navigateWeek(direction) {
+        const currentIndex = navigableWeeks.indexOf(currentWeek);
+        let changed = false;
         
-        // Actually, simpler approach for PoC: Just show the date range relative to Today.
-        // Let's assume Week 1 = This Week.
-        const targetMonday = new Date(thisMonday.getTime() + ((weekNum - 1) * 7 * msPerDay));
-        const targetSunday = new Date(targetMonday.getTime() + (6 * msPerDay));
-        return { start: targetMonday, end: targetSunday };
+        if (direction === -1) {
+            if (currentIndex > 0) {
+                currentWeek = navigableWeeks[currentIndex - 1];
+                changed = true;
+            }
+        } else {
+            if (currentIndex < navigableWeeks.length - 1) {
+                currentWeek = navigableWeeks[currentIndex + 1];
+                changed = true;
+            }
+        }
+        
+        if (changed) {
+            // FIX: STRICTLY RESET STATE when navigating to a different week
+            // This prevents "Ghost Data" from previous week appearing on new week
+            appState = createInitialState();
+            saveLocal();
+            renderHeader();
+            renderTabs();
+            renderWorkout();
+        }
     }
 
     function createInitialState() {
@@ -139,20 +315,40 @@
         return state;
     }
 
+    // --- UNIT CONVERSION ---
+    
+    function toDisplayWeight(kgVal) {
+        if (kgVal === '' || kgVal === null || isNaN(kgVal)) return '';
+        if (useImperial) return (parseFloat(kgVal) * 2.20462).toFixed(1);
+        return parseFloat(kgVal).toFixed(1); 
+    }
+
+    function toStorageWeight(displayVal) {
+        if (displayVal === '' || displayVal === null) return '';
+        if (useImperial) return parseFloat(displayVal) / 2.20462;
+        return parseFloat(displayVal);
+    }
+
+    function toggleUnits() {
+        useImperial = !useImperial;
+        localStorage.setItem('ppl_useImperial', useImperial);
+        renderWorkout(); 
+    }
+
     // --- PERSISTENCE ---
 
     function saveLocal() {
-        // FIXED: Saves everything to phone memory instantly
         localStorage.setItem('ppl_appState', JSON.stringify(appState));
         localStorage.setItem('ppl_dayModes', JSON.stringify(dayModes));
         localStorage.setItem('ppl_currentWeek', currentWeek);
-        localStorage.setItem('ppl_timestamp', new Date().toISOString());
+        localStorage.setItem('ppl_useImperial', useImperial);
     }
 
     function loadLocal() {
         const savedState = localStorage.getItem('ppl_appState');
         const savedModes = localStorage.getItem('ppl_dayModes');
         const savedWeek = localStorage.getItem('ppl_currentWeek');
+        const savedUnit = localStorage.getItem('ppl_useImperial');
 
         if (savedState) appState = JSON.parse(savedState);
         else appState = createInitialState();
@@ -161,19 +357,69 @@
         else Object.keys(workoutData).forEach(d => dayModes[d] = 'ppl');
 
         if (savedWeek) currentWeek = parseInt(savedWeek);
+        if (savedUnit !== null) useImperial = (savedUnit === 'true');
     }
 
-async function saveToCloud(payload) {
-        try {
-            await fetch(SCRIPT_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain' }, // 'text/plain' avoids CORS preflight
-                body: JSON.stringify(payload)
+    // --- CLOUD SYNC ---
+
+    async function finishWorkout() {
+        const btn = document.getElementById('save-btn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>Syncing...</span>';
+        btn.disabled = true;
+        btn.classList.add('opacity-75');
+
+        const isTravel = dayModes[currentDay] === 'travel';
+        const dataKey = isTravel ? currentDay + '_travel_data' : currentDay;
+        const dayData = appState[dataKey];
+        
+        const payload = [];
+        
+        dayData.exercises.forEach((ex, exIdx) => {
+            ex.logs.forEach((log, setIdx) => {
+                if (log.done) {
+                    payload.push({
+                        week: currentWeek,
+                        day: currentDay,
+                        exercise: ex.name,
+                        setIndex: setIdx,
+                        log: { weight: log.weight, reps: log.reps, done: true }
+                    });
+                }
             });
-            console.log("Sent to cloud");
+        });
+
+        if (payload.length === 0) {
+            alert("Nothing to sync yet! Log a set first.");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            for (const item of payload) {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(item)
+                });
+            }
+
+            isDirty = false;
+            toggleSaveBar(false);
+            btn.innerHTML = '<span>Synced!</span>';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                btn.classList.remove('opacity-75');
+            }, 2000);
+
         } catch (e) {
-            console.error("Cloud save failed", e);
+            console.error(e);
+            alert("Error syncing. Check internet.");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
     }
 
@@ -182,59 +428,175 @@ async function saveToCloud(payload) {
             const callbackName = 'jsonpCallback_' + Date.now();
             window[callbackName] = function(data) {
                 allLogs = data;
-                // Build a map of the LAST time an exercise was done
-                allLogs.forEach(log => {
-                    if(log.Done) latestLogMap.set(log.Exercise, log);
-                });
+                updateNavigableWeeks(); 
+                
+                // Debug Info
+                const debugDiv = document.getElementById('debug-info');
+                const fmt = d => d.toLocaleDateString();
+                if (firstLogDate) {
+                    const w1Start = getWeekStartAnchor();
+                    debugDiv.innerHTML = `Week 1 Anchor: <strong>${fmt(w1Start)}</strong><br/>Valid Weeks: ${navigableWeeks.join(', ')}`;
+                }
+
+                const debugList = document.getElementById('debug-log-list');
+                const uniqueExercises = [...new Set(allLogs.map(l => l.Exercise))];
+                debugList.innerHTML = uniqueExercises.map(ex => `<div>• ${ex}</div>`).join('');
+
+                renderHeader(); 
+                renderTabs();
+                renderWorkout();
+
                 delete window[callbackName];
                 document.body.removeChild(script);
                 resolve();
             };
             const script = document.createElement('script');
             script.src = SCRIPT_URL + '?callback=' + callbackName;
-            script.onerror = resolve; // Continue even if offline
+            script.onerror = resolve; 
             document.body.appendChild(script);
         });
     }
 
-    // --- LOGIC: PROGRESSIVE OVERLOAD & DELOAD ---
+    // --- SMART LOGIC ---
+
+    function normalizeName(name) {
+        if(!name) return "";
+        return name.toLowerCase()
+            .replace(/barbell/g, '')
+            .replace(/dumbbell/g, '')
+            .replace(/db/g, '')
+            .replace(/bb/g, '')
+            .replace(/[^a-z]/g, ''); 
+    }
+
+    function isExerciseMatch(targetName, logName) {
+        let searchTarget = targetName.toLowerCase();
+        if (manualAliases[searchTarget]) searchTarget = manualAliases[searchTarget];
+        
+        const normalizedTarget = normalizeName(searchTarget);
+        const logNameRaw = logName.toLowerCase();
+        const logNameNorm = normalizeName(logNameRaw);
+
+        return (searchTarget === logNameRaw) || 
+               (normalizedTarget === logNameNorm) ||
+               (logNameNorm.includes(normalizedTarget) && normalizedTarget.length > 3) ||
+               (normalizedTarget.includes(logNameNorm) && logNameNorm.length > 3);
+    }
+
+    // RESTORE HISTORY (Hydrate Past)
+    function restoreHistoryForCurrentView() {
+        if (allLogs.length === 0) return;
+
+        const isTravel = dayModes[currentDay] === 'travel';
+        const dataKey = isTravel ? currentDay + '_travel_data' : currentDay;
+        const dayData = appState[dataKey];
+        const targetWeek = currentWeek;
+        const targetDay = currentDay.toLowerCase();
+
+        dayData.exercises.forEach(ex => {
+            const specificLogs = allLogs.filter(l => 
+                parseInt(l.Week) === targetWeek && 
+                l.Day.toLowerCase() === targetDay &&
+                isExerciseMatch(ex.name, l.Exercise)
+            );
+
+            specificLogs.forEach(log => {
+                const setIdx = parseInt(log.SetIndex);
+                if (ex.logs[setIdx]) {
+                    ex.logs[setIdx].weight = parseFloat(log.Weight);
+                    ex.logs[setIdx].reps = log.Reps;
+                    ex.logs[setIdx].done = true; 
+                    delete ex.logs[setIdx].suggestionNote;
+                    delete ex.logs[setIdx].suggestionSeverity;
+                }
+            });
+        });
+    }
+
+    function findLastLog(exerciseName, beforeDate) {
+        let bestMatch = null;
+        let latestDate = 0;
+
+        allLogs.forEach(log => {
+            if(!log.Done) return;
+            const logDate = new Date(log.Timestamp);
+            if (logDate >= beforeDate) return; 
+
+            if (isExerciseMatch(exerciseName, log.Exercise)) {
+                const logTime = logDate.getTime();
+                if (logTime > latestDate) {
+                    latestDate = logTime;
+                    bestMatch = log;
+                }
+            }
+        });
+        return bestMatch;
+    }
 
     function applySuggestions() {
-        // This runs once when we load the data
+        const viewDate = getCurrentViewDate();
+        
+        // FIX: STRICTLY disable suggestions for days in the past (before today's midnight)
+        // This ensures missing past days stay BLANK instead of showing suggestions
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        if (viewDate < today) return; 
+
         Object.values(appState).forEach(dayData => {
             if (!dayData.exercises) return;
             dayData.exercises.forEach(ex => {
-                const lastLog = latestLogMap.get(ex.name);
-                
-                // Only suggest if the user hasn't typed anything yet
+                const lastLog = findLastLog(ex.name, viewDate);
                 ex.logs.forEach(log => {
+                    // Only suggest if empty and not done
                     if (!log.weight && !log.reps && !log.done && lastLog) {
-                        
-                        // FIXED: DELOAD LOGIC
-                        const daysSince = (new Date() - new Date(lastLog.Timestamp)) / (1000 * 60 * 60 * 24);
+                        const daysSince = (viewDate - new Date(lastLog.Timestamp)) / (1000 * 60 * 60 * 24);
                         let weight = parseFloat(lastLog.Weight);
-                        
+                        let suggestionReason = null;
+                        let severity = null; 
+
                         if (daysSince > 21) {
-                            // 3 weeks off? Drop 20%
                             weight = weight * 0.8;
+                            suggestionReason = `Long Break (${Math.floor(daysSince)} Days): -20% load.`;
+                            severity = 'orange';
                         } else if (daysSince > 10) {
-                            // 10 days off? Drop 10%
                             weight = weight * 0.9;
+                            suggestionReason = `Break Detected (${Math.floor(daysSince)} Days): -10% load.`;
+                            severity = 'yellow';
                         } else {
-                            // Progressive Overload: Add weight if they hit max reps
-                            // Simple logic: if they did > 8 reps, add 2.5kg
                             if (parseInt(lastLog.Reps) >= 8) weight += 2.5; 
                         }
                         
-                        // Round to nearest 2.5
-                        weight = Math.round(weight / 2.5) * 2.5;
-
+                        weight = Math.round(weight * 2) / 2;
                         log.weight = weight;
-                        log.reps = lastLog.Reps; // Keep rep target same
+                        log.reps = lastLog.Reps; 
+                        
+                        if(suggestionReason) {
+                            log.suggestionNote = suggestionReason;
+                            log.suggestionSeverity = severity;
+                        }
                     }
                 });
             });
         });
+    }
+
+    // --- UI HELPERS ---
+
+    function openInfo(exName) {
+        document.getElementById('modal-title').textContent = exName;
+        const query = encodeURIComponent(exName + " exercise form guide");
+        document.getElementById('modal-yt-link').href = `https://www.youtube.com/results?search_query=${query}`;
+        document.getElementById('info-modal').style.display = 'flex';
+    }
+
+    function closeModal(e) {
+        if(e.target.id === 'info-modal') e.target.style.display = 'none';
+    }
+    
+    function toggleSaveBar(show) {
+        const bar = document.getElementById('save-bar');
+        if (show) bar.classList.remove('translate-y-full');
+        else bar.classList.add('translate-y-full');
     }
 
     // --- RENDER ---
@@ -243,115 +605,123 @@ async function saveToCloud(payload) {
         const { start, end } = getRealDateForWeek(currentWeek);
         const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         
+        const idx = navigableWeeks.indexOf(currentWeek);
+        const hasPrev = idx > 0;
+        const hasNext = idx < navigableWeeks.length - 1;
+
         document.getElementById('week-number-display').textContent = `Week ${currentWeek}`;
         document.getElementById('week-date-display').textContent = `${fmt(start)} - ${fmt(end)}`;
         
-        document.getElementById('prev-week-btn').disabled = currentWeek <= 1;
-        document.getElementById('prev-week-btn').classList.toggle('opacity-50', currentWeek <= 1);
+        const prevBtn = document.getElementById('prev-week-btn');
+        const nextBtn = document.getElementById('next-week-btn');
+
+        prevBtn.disabled = !hasPrev;
+        prevBtn.classList.toggle('opacity-50', !hasPrev);
+        
+        nextBtn.disabled = !hasNext;
+        nextBtn.classList.toggle('opacity-50', !hasNext);
     }
 
-function renderTabs() {
+    function renderTabs() {
         const container = document.getElementById('day-selector');
         container.innerHTML = '';
         
-        Object.keys(workoutData).forEach(day => {
+        const weekStart = getRealDateForWeek(currentWeek).start;
+        const checkDataExists = (dayOffset) => {
+            if (allLogs.length === 0) return false;
+            const target = new Date(weekStart);
+            target.setDate(target.getDate() + dayOffset);
+            const targetStr = target.toDateString(); 
+            return allLogs.some(log => new Date(log.Timestamp).toDateString() === targetStr);
+        };
+
+        const dayKeys = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+        dayKeys.forEach((day, idx) => {
+            if (!workoutData[day]) return;
+
             const isTravel = dayModes[day] === 'travel';
             const isActive = day === currentDay;
             const label = day.substring(0,3).toUpperCase();
-            
+            const hasData = checkDataExists(idx);
+
             const btn = document.createElement('button');
-            // Prevent the default iOS long-press menu
             btn.style.userSelect = 'none'; 
             btn.style.webkitUserSelect = 'none';
             
             btn.className = `day-tab-btn relative p-2 rounded-md font-bold text-sm transition-all border select-none ${
-                isActive ? 'bg-blue-500 text-white border-blue-600' : 
+                isActive ? 'day-tab active bg-blue-500 text-white border-blue-600' : 
                 isTravel ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
             }`;
             
             btn.innerHTML = `
-                <div class="pointer-events-none">${label}</div>
+                <div class="pointer-events-none flex flex-col items-center">
+                    <span>${label}</span>
+                    ${hasData ? '<span class="has-data-dot"></span>' : ''}
+                </div>
                 <div class="pointer-events-none text-[10px] font-normal opacity-80">${isTravel ? '✈️' : workoutData[day].name.split(' ')[0]}</div>
                 ${isTravel ? '<div class="absolute -top-1 -right-1 bg-amber-500 text-white text-[8px] px-1 rounded-full">TRAVEL</div>' : ''}
             `;
             
-            // --- LOGIC FOR LONG PRESS (IPHONE FIX) ---
             let pressTimer;
             let isLongPress = false;
 
-            // 1. Touch Start: Begin the countdown
             btn.addEventListener('touchstart', (e) => {
                 isLongPress = false;
                 pressTimer = setTimeout(() => {
                     isLongPress = true;
-                    // Trigger the toggle
                     dayModes[day] = isTravel ? 'ppl' : 'travel';
                     saveLocal();
                     renderTabs();
                     if(day === currentDay) renderWorkout();
-                    
-                    // Haptic feedback if available
                     if (navigator.vibrate) navigator.vibrate(50);
-                }, 600); // 600ms hold time
+                }, 600);
             }, {passive: true});
 
-            // 2. Touch End: Clear timer. If it wasn't a long press, do a normal click.
             btn.addEventListener('touchend', (e) => {
                 clearTimeout(pressTimer);
                 if (!isLongPress) {
-                    // Normal tap behavior
-                    e.preventDefault(); // Stop ghost clicks
-                    currentDay = day; 
+                    e.preventDefault(); 
+                    currentDay = day;
                     renderWorkout();
-                    renderTabs(); // Re-render to highlight active tab
+                    renderTabs();
                 }
             });
 
-            // 3. Touch Move: User is scrolling, CANCEL the long press
-            btn.addEventListener('touchmove', () => {
-                clearTimeout(pressTimer);
-            }, {passive: true});
-
-            // 4. Desktop Right Click (Backup)
-            btn.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                dayModes[day] = isTravel ? 'ppl' : 'travel';
-                saveLocal();
-                renderTabs();
-                if(day === currentDay) renderWorkout();
-            });
-
-            // 5. Desktop Click
+            btn.addEventListener('touchmove', () => clearTimeout(pressTimer), {passive: true});
             btn.addEventListener('click', () => {
-                 // Handled by touchend on mobile, but needed for mouse users
                  if (window.matchMedia('(hover: hover)').matches) {
-                    currentDay = day; 
+                    currentDay = day;
                     renderWorkout();
                     renderTabs();
                  }
             });
-
             container.appendChild(btn);
         });
         
-        // Helper text update
         if(!document.getElementById('hint-added')) {
             const hint = document.createElement('div');
             hint.id = 'hint-added';
-            hint.className = "col-span-3 sm:col-span-6 text-center text-[10px] text-slate-400 mt-1";
-            hint.textContent = "Tap to view • Hold to toggle Travel Mode ✈️";
+            hint.className = "col-span-3 sm:col-span-7 text-center text-[10px] text-slate-400 mt-1";
+            hint.innerHTML = "Tap to view • Hold to toggle Travel Mode ✈️ • <span class='text-emerald-500'>● Data Recorded</span>";
             container.appendChild(hint);
         }
     }
 
     function renderWorkout() {
+        // Hydrate History (Fill past weeks)
+        restoreHistoryForCurrentView();
+        // Calculate Suggestions (For Today/Future)
+        applySuggestions();
+
         const container = document.getElementById('workout-container');
         container.innerHTML = '';
+        
+        const viewDate = getCurrentViewDate();
 
         const isTravel = dayModes[currentDay] === 'travel';
         let data = isTravel ? travelWorkoutData : appState[currentDay];
         
-        // If switching to travel for first time, we might need to copy template structure
         if (isTravel && !appState[currentDay + '_travel_data']) {
             appState[currentDay + '_travel_data'] = JSON.parse(JSON.stringify(travelWorkoutData));
         }
@@ -366,23 +736,48 @@ function renderTabs() {
             const card = document.createElement('div');
             card.className = "bg-white rounded-lg shadow-md overflow-hidden";
             
+            const lastLog = findLastLog(ex.name, viewDate);
+            const prevWeight = lastLog ? toDisplayWeight(lastLog.Weight) : '-';
+            
             let rows = '';
             ex.logs.forEach((log, setIdx) => {
+                const displayWeight = toDisplayWeight(log.weight);
+                const hasSuggestion = log.suggestionNote ? true : false;
+                
+                let inputClasses = "w-full bg-slate-50 border border-slate-200 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-blue-500 outline-none";
+                let badgeClass = "bg-blue-100 text-blue-600"; 
+
+                if (hasSuggestion) {
+                    if (log.suggestionSeverity === 'orange') {
+                        inputClasses = "w-full bg-orange-50 border border-orange-300 text-orange-700 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-orange-500 outline-none";
+                        badgeClass = "bg-orange-100 text-orange-600 border border-orange-200";
+                    } else if (log.suggestionSeverity === 'yellow') {
+                        inputClasses = "w-full bg-yellow-50 border border-yellow-300 text-yellow-700 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-yellow-500 outline-none";
+                        badgeClass = "bg-yellow-100 text-yellow-600 border border-yellow-200";
+                    }
+                }
+                
                 rows += `
                 <tr class="set-row border-b border-slate-100 last:border-0 ${log.done ? 'completed bg-slate-50' : ''}">
                     <td class="p-3 text-center text-slate-400 font-mono text-sm">${setIdx + 1}</td>
-                    <td class="p-2 text-xs text-slate-500">${ex.effort}</td>
-                    <td class="p-2">
-                        <input type="tel" data-type="weight" data-ex="${exIdx}" data-set="${setIdx}" 
-                            value="${log.weight}" placeholder="kg" 
-                            class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
+                    <td class="p-2 text-xs text-slate-400 font-medium bg-slate-50 text-center border-r border-slate-100 w-12">${prevWeight}</td>
+                    
+                    <td class="p-2 relative flex items-center">
+                        <input type="number" step="0.5" data-type="weight" data-ex="${exIdx}" data-set="${setIdx}" 
+                            value="${displayWeight}" placeholder="${useImperial?'lbs':'kg'}" 
+                            class="${inputClasses}">
+                        
+                        ${hasSuggestion && !log.done ? `
+                        <div class="suggestion-badge ${badgeClass}" onclick="alert('${log.suggestionNote}')">
+                            i
+                        </div>` : ''}
                     </td>
-                    <td class="p-2">
+                    <td class="p-2 w-20">
                         <input type="tel" data-type="reps" data-ex="${exIdx}" data-set="${setIdx}" 
                             value="${log.reps}" placeholder="reps" 
                             class="w-full bg-slate-50 border border-slate-200 rounded p-2 text-center font-semibold focus:ring-2 focus:ring-blue-500 outline-none">
                     </td>
-                    <td class="p-3 text-center">
+                    <td class="p-3 text-center w-10">
                         <input type="checkbox" data-type="done" data-ex="${exIdx}" data-set="${setIdx}" 
                             ${log.done ? 'checked' : ''} 
                             class="w-6 h-6 text-blue-600 rounded focus:ring-blue-500">
@@ -392,14 +787,28 @@ function renderTabs() {
 
             card.innerHTML = `
                 <div class="bg-slate-50 p-3 border-b border-slate-200 flex justify-between items-center">
-                    <div>
+                    <div class="flex items-center gap-2">
                         <h3 class="font-bold text-slate-800">${ex.name}</h3>
-                        <p class="text-xs text-slate-500">Rest: ${ex.rest || 'N/A'}</p>
+                        <button onclick="openInfo('${ex.name}')" class="text-slate-400 hover:text-blue-500 transition">📖</button>
                     </div>
+                    <p class="text-xs text-slate-500">Rest: ${ex.rest || 'N/A'}</p>
                 </div>
                 <table class="w-full">
                     <thead class="bg-slate-100 text-xs text-slate-500 uppercase">
-                        <tr><th class="p-2 w-8">#</th><th class="p-2">Goal</th><th class="p-2 w-20">Kg</th><th class="p-2 w-20">Reps</th><th class="p-2 w-10">✓</th></tr>
+                        <tr>
+                            <th class="p-2 w-8">#</th>
+                            <th class="p-2 w-12 text-center">
+                                <div class="tooltip-container cursor-help border-b border-dotted border-slate-400">
+                                    Prev/Ref
+                                    <span class="tooltip-text">Last weight recorded <strong>before</strong> this date.</span>
+                                </div>
+                            </th>
+                            <th class="p-2 cursor-pointer hover:text-blue-600 hover:underline select-none transition-colors" onclick="toggleUnits()">
+                                ${useImperial ? 'LBS ⇄' : 'KG ⇄'}
+                            </th>
+                            <th class="p-2 w-20">Reps</th>
+                            <th class="p-2 w-10">✓</th>
+                        </tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
@@ -415,13 +824,15 @@ function renderTabs() {
     });
     
     document.getElementById('workout-container').addEventListener('change', (e) => {
-        // Handle checkbox specific logic
         if(e.target.type === 'checkbox') handleInput(e);
     });
 
-function handleInput(e) {
+    function handleInput(e) {
         const el = e.target;
         if (!el.dataset.type) return;
+
+        isDirty = true;
+        toggleSaveBar(true);
 
         const isTravel = dayModes[currentDay] === 'travel';
         const dataKey = isTravel ? currentDay + '_travel_data' : currentDay;
@@ -433,22 +844,8 @@ function handleInput(e) {
         if (el.dataset.type === 'done') {
             log.done = el.checked;
             el.closest('tr').classList.toggle('completed', log.done);
-            
-            // IF marked DONE, send to cloud with CORRECT STRUCTURE
-            if (log.done) {
-                const payload = {
-                    week: currentWeek,          // script expects 'week' (lowercase)
-                    day: currentDay,            // script expects 'day'
-                    exercise: appState[dataKey].exercises[exIdx].name, // script expects 'exercise'
-                    setIndex: setIdx,           // script expects 'setIndex'
-                    log: {                      // script expects a nested 'log' object
-                        weight: log.weight,
-                        reps: log.reps,
-                        done: true
-                    }
-                };
-                saveToCloud(payload);
-            }
+        } else if (el.dataset.type === 'weight') {
+            log.weight = toStorageWeight(el.value);
         } else {
             log[el.dataset.type] = el.value;
         }
@@ -456,37 +853,32 @@ function handleInput(e) {
         saveLocal();
     }
 
+    function debugReset() {
+        if(confirm("Delete all local data?")) {
+            localStorage.clear();
+            window.location.reload();
+        }
+    }
+
     // --- INIT ---
 
     async function init() {
-        // 1. Load Local (Instant)
         loadLocal();
-        
-        // 2. Set Day to actual today
         const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
         currentDay = days[new Date().getDay()];
-        
-        // 3. Render initial view
         renderHeader();
         renderTabs();
         renderWorkout();
 
-        // 4. Fetch Cloud History (Background)
         try {
             await loadCloudData();
-            console.log("Cloud data loaded. Applying logic...");
-            applySuggestions();
-            // Re-render to show suggestions if fields were empty
+            console.log("Cloud data loaded.");
             renderWorkout(); 
         } catch (e) {
             console.log("Working offline.");
         }
     }
     
-    // Navigation
-    document.getElementById('prev-week-btn').onclick = () => { if(currentWeek > 1) { currentWeek--; saveLocal(); renderHeader(); }};
-    document.getElementById('next-week-btn').onclick = () => { currentWeek++; saveLocal(); renderHeader(); };
-
     init();
 
     </script>
